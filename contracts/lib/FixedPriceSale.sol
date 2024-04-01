@@ -175,7 +175,6 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
    * @dev Overridden function to handle the actual NFT minting logic
    * @param to Address to mint NFTs to
    * @param n Quantity of NFTs to mint
-   * @param silent Unused boolean, part of overridden function signature
    */
   function _handlePurchase(address to, uint256 n, bool) internal override {
     _mintTokens(to, n);
