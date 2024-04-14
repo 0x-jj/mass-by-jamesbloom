@@ -68,6 +68,10 @@ async function main() {
   );
   console.log("Sale Contract is deployed", sale.address);
 
+  const FriendlyMinterStorage = await ethers.getContractFactory("FriendlyMinterStorage");
+  const friendlyMinterStorage = await FriendlyMinterStorage.deploy(sale.address, [dev.address]);
+
+  await sale.setFriendlyMinterStorage(friendlyMinterStorage.address);
   await sale.setPresaleMerkleRoot(merkleTree.root);
   await nftContract.setMinterAddress(sale.address);
   await sale.setNftContractAddress(nftContract.address);

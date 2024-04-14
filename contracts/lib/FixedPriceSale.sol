@@ -164,7 +164,7 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
       revert PresaleNotOpen();
     }
 
-    if (block.timestamp < presaleStartTime + 24 hours) {
+    if (!publicSaleOpen) {
       // In presale mint phase, check merkle proof or friend mint
       bytes32 leaf = keccak256(abi.encodePacked(minter));
       bool isInMerkleTree = MerkleProof.verify(_merkleProof, presaleMerkleRoot, leaf);
@@ -223,7 +223,7 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
     }
   }
 
-  function saleInfo() external view returns (uint256, uint256, uint256) {
-    return (price, presaleStartTime, presaleStartTime + 24 hours);
+  function saleInfo() external view returns (uint256, uint256, bool, bool) {
+    return (price, presaleStartTime, publicSaleOpen, friendMintsEnabled);
   }
 }
