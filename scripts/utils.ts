@@ -66,6 +66,15 @@ const addresses = {
     ethfs_ContentStore: "0xED7C16aB4eB4D091F492713e5235Ac93852bc3a0",
     ethfs_FileStore: "0x5E348d0975A920E9611F8140f84458998A53af94",
   },
+  localhost: {
+    ScriptyStorage: "0xEA5cD8A8D4eFdA42266E7B9139F8d80915A56daf",
+    ScriptyBuilder: "0x610c05bC5739baf4837fF67d5fc5Ab6D9Ee7558D",
+    ETHFSFileStorage: "0x70a78d91A434C1073D47b2deBe31C184aA8CA9Fa",
+    WETH: "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6",
+    DelegateCash: "0x00000000000076a84fef008cdabe6409d2fe638b",
+    ethfs_ContentStore: "0xED7C16aB4eB4D091F492713e5235Ac93852bc3a0",
+    ethfs_FileStore: "0x5E348d0975A920E9611F8140f84458998A53af94",
+  },
 };
 
 export const addressFor = (networkName: string, name: string) => {

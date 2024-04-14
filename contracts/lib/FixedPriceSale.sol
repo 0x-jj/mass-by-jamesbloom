@@ -14,16 +14,19 @@ error NotAllowedToNominate();
 error NotOnAllowlist();
 error PresaleNotOpen();
 error PublicSaleNotOpen();
+error FriendMintsDisabled();
+
+interface IFriendlyMinterStorage {
+  function canDoFriendMint(address) external view returns (bool);
+  function addFriendlyMinter(address) external;
+  function markFriendlyMinterAsMinted(address) external;
+}
 
 contract FixedPriceSale is FixedPriceSeller, AccessControl {
-  struct FriendlyMinter {
-    address minter;
-    bool hasMinted;
-  }
+  /// @notice Address of the friendly minter storage contract
+  IFriendlyMinterStorage public friendMinterStorage;
 
-  /// @notice Addresses nominated by presale minters to be able to mint
-  mapping(address => FriendlyMinter) public friendlyMinters;
-
+  /// @notice Timestamp for when the presale starts
   uint256 public presaleStartTime;
 
   /// @dev Merkle root for allowed presale minters
@@ -35,6 +38,12 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
   /// @dev Delegate cash contract address
   IDelegateCash public delegateCash;
 
+  /// @notice Whether friend mints are enabled
+  bool public friendMintsEnabled;
+
+  /// @notice Whether the public sale is open
+  bool public publicSaleOpen;
+
   /**
    * @param _price Price per NFT
    * @param sellerConfig Configuration for the sale process
@@ -42,6 +51,7 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
    * @param _presaleStartTime Timestamp for when the presale starts
    * @param _admins Addresses to be granted admin roles
    * @param _delegateCash Address of the DelegateCash contract
+   * @param _friendMintsEnabled  Whether friend mints are enabled
    */
   constructor(
     uint256 _price,
@@ -49,7 +59,8 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
     address payable _beneficiary,
     uint256 _presaleStartTime,
     address[] memory _admins,
-    address _delegateCash
+    address _delegateCash,
+    bool _friendMintsEnabled
   ) FixedPriceSeller(_price, sellerConfig, _beneficiary) {
     presaleStartTime = _presaleStartTime;
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -57,23 +68,7 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
       _grantRole(DEFAULT_ADMIN_ROLE, _admins[i]);
     }
     delegateCash = IDelegateCash(_delegateCash);
-  }
-
-  /**
-   * @dev Adds a friendly minter to the mapping
-   * @param minter Address of the friendly minter
-   */
-  function addFriendlyMinter(address minter) internal {
-    friendlyMinters[minter] = FriendlyMinter(minter, false);
-  }
-
-  /**
-   * @notice Checks if an address is eligible for a friend mint
-   * @param minter Address to check eligibility for friend minting
-   * @return bool indicating if the minter can perform a friend mint
-   */
-  function canDoFriendMint(address minter) public view returns (bool) {
-    return friendlyMinters[minter].minter != address(0) && !friendlyMinters[minter].hasMinted;
+    friendMintsEnabled = _friendMintsEnabled;
   }
 
   /**
@@ -103,6 +98,38 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
   function setNftContractAddress(address newAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
     require(newAddress != address(0), "Invalid address: zero address not allowed");
     nftContractAddress = INFT(newAddress);
+  }
+
+  /**
+   * @dev Sets the address of the friendly minter storage contract.
+   * @param newAddress The address of the new friendly minter storage contract.
+   */
+  function setFriendlyMinterStorage(address newAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    require(newAddress != address(0), "Invalid address: zero address not allowed");
+    friendMinterStorage = IFriendlyMinterStorage(newAddress);
+  }
+
+  /**
+   * @dev Sets whether friend mints are enabled.
+   * @param enabled Whether friend mints are enabled.
+   */
+  function setFriendMintsEnabled(bool enabled) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    friendMintsEnabled = enabled;
+  }
+
+  /**
+   * @dev Sets whether the public sale is open.
+   * @notice If the public sale is open, the seller config is updated to remove per-wallet mint limits
+   * @param open Whether the public sale is open.
+   */
+  function setPublicSaleOpen(bool open) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    if (open) {
+      Seller.SellerConfig memory cfg = sellerConfig;
+      cfg.maxPerAddress = 0;
+      cfg.maxPerTx = 0;
+      setSellerConfig(cfg);
+    }
+    publicSaleOpen = open;
   }
 
   /**
@@ -141,16 +168,20 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
       // In presale mint phase, check merkle proof or friend mint
       bytes32 leaf = keccak256(abi.encodePacked(minter));
       bool isInMerkleTree = MerkleProof.verify(_merkleProof, presaleMerkleRoot, leaf);
-      if (!isInMerkleTree && !canDoFriendMint(minter)) {
+      if (!isInMerkleTree && !friendMinterStorage.canDoFriendMint(minter)) {
         revert NotOnAllowlist();
       }
 
       if (isInMerkleTree && nominatedFriend != address(0)) {
-        addFriendlyMinter(nominatedFriend);
+        friendMinterStorage.addFriendlyMinter(nominatedFriend);
       }
 
       if (!isInMerkleTree && nominatedFriend != address(0)) {
         revert NotAllowedToNominate();
+      }
+
+      if (!isInMerkleTree && !friendMintsEnabled) {
+        revert FriendMintsDisabled();
       }
     }
 
@@ -164,7 +195,7 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
   function purchase(uint32 qty) external payable whenNotPaused {
     require(nftContractAddress != INFT(address(0)), "NFT contract address not set");
 
-    if (block.timestamp < presaleStartTime + 24 hours) {
+    if (!publicSaleOpen) {
       revert PublicSaleNotOpen();
     }
 
@@ -190,5 +221,9 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
     for (uint256 i; i != qty; ++i) {
       nftContractAddress.mint(to);
     }
+  }
+
+  function saleInfo() external view returns (uint256, uint256, uint256) {
+    return (price, presaleStartTime, presaleStartTime + 24 hours);
   }
 }

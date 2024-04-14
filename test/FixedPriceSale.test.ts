@@ -4,7 +4,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { signBid } from "./helpers/sign";
 import { takeSnapshot, revertToSnapshot } from "./helpers/snapshot";
 import { increaseTime } from "./helpers/time";
-import { DutchAuction, FixedPriceSale, Mass, Seller } from "../typechain-types";
+import { DutchAuction, FixedPriceSale, FriendlyMinterStorage, Mass, Seller } from "../typechain-types";
 import { BigNumber } from "ethers";
 import { deployContracts, getMerkleRoot, timeTravel } from "./utils";
 import MerkleTree from "merkletreejs";
@@ -12,18 +12,16 @@ import { parseEther } from "ethers/lib/utils";
 
 const toWei = ethers.utils.parseEther;
 
-const START_PRICE = toWei("1.4");
-const RESERVED_MINTS = 3;
-const MAX_SUPPLY = 10;
-
 const DEV_SPLIT = 140; // 14%
 const ARTIST_SPLIT = 650; // 65 %
 const DAO_SPLIT = 210; // 21 %
+const MAX_SUPPLY = 300;
 
 const zeroAddress = ethers.constants.AddressZero;
 
 describe.only("FixedPriceSale", function () {
   let nft: Mass;
+  let friendlyMinterStorage: FriendlyMinterStorage;
   let sale: FixedPriceSale;
   let admin: SignerWithAddress;
   let alice: SignerWithAddress;
@@ -31,7 +29,6 @@ describe.only("FixedPriceSale", function () {
   let jill: SignerWithAddress;
   let signer: SignerWithAddress;
   let treasury: SignerWithAddress;
-  let defaultAdminRole: string;
   let snapshotId: number;
   let merkle: { tree: MerkleTree; root: string; proof: (addy: string) => string[] };
 
@@ -49,12 +46,12 @@ describe.only("FixedPriceSale", function () {
       [admin.address],
       wethContract.address,
       contracts.rendererContract.address,
-      20,
+      MAX_SUPPLY,
       "0x00000000000076A84feF008CDAbe6409d2FE638B"
     );
 
     const sellerConfig: Seller.SellerConfigStruct = {
-      totalInventory: 300,
+      totalInventory: MAX_SUPPLY,
       maxPerAddress: 3,
       maxPerTx: 0,
       freeQuota: 20,
@@ -70,14 +67,16 @@ describe.only("FixedPriceSale", function () {
       treasury.address,
       Math.floor(Date.now() / 1000) - 100,
       [admin.address],
-      "0x00000000000076A84feF008CDAbe6409d2FE638B"
+      "0x00000000000076A84feF008CDAbe6409d2FE638B",
+      true
     );
 
+    const FriendlyMinterStorage = await ethers.getContractFactory("FriendlyMinterStorage");
+    friendlyMinterStorage = await FriendlyMinterStorage.deploy(sale.address, [admin.address]);
+
+    await sale.connect(admin).setFriendlyMinterStorage(friendlyMinterStorage.address);
     await nft.connect(admin).setMinterAddress(sale.address);
-
     await sale.connect(admin).setNftContractAddress(nft.address);
-
-    defaultAdminRole = await sale.DEFAULT_ADMIN_ROLE();
   });
 
   beforeEach(async () => {
@@ -151,7 +150,7 @@ describe.only("FixedPriceSale", function () {
         .connect(alice)
         .purchasePresale(1, merkle.proof(alice.address), zeroAddress, bob.address, { value: toWei("0.1") });
 
-      const deets = await sale.friendlyMinters(bob.address);
+      const deets = await friendlyMinterStorage.friendlyMinters(bob.address);
       expect(deets[0]).to.equal(bob.address);
       expect(deets[1]).to.be.false;
     });
@@ -178,6 +177,27 @@ describe.only("FixedPriceSale", function () {
       expect(await nft.balanceOf(bob.address)).to.equal(2);
     });
 
+    it("should not allow a nominated friend to mint when not enabled", async function () {
+      // Revert initially
+      await expect(
+        sale
+          .connect(bob)
+          .purchasePresale(1, merkle.proof(alice.address), zeroAddress, zeroAddress, { value: toWei("0.1") })
+      ).to.be.revertedWithCustomError(sale, "NotOnAllowlist");
+
+      // Alice mint and add bob as friend mint
+      await sale
+        .connect(alice)
+        .purchasePresale(1, merkle.proof(alice.address), zeroAddress, bob.address, { value: toWei("0.1") });
+
+      await sale.connect(admin).setFriendMintsEnabled(false);
+
+      // Bob can mint N as friend
+      await expect(
+        sale.connect(bob).purchasePresale(2, [], zeroAddress, zeroAddress, { value: toWei("0.2") })
+      ).to.be.revertedWithCustomError(sale, "FriendMintsDisabled");
+    });
+
     it("shouldn't allow a friend to nominate a friend", async function () {
       // Alice mint and add bob as friend mint
       await sale
@@ -198,13 +218,20 @@ describe.only("FixedPriceSale", function () {
     });
   });
 
+  describe("Admin funcs", function () {
+    it("should not allow non admins to set public sale open", async function () {
+      await expect(sale.connect(jill).setPublicSaleOpen(true)).to.be.revertedWith(/AccessControl/);
+      await expect(sale.connect(jill).setPublicSaleOpen(false)).to.be.revertedWith(/AccessControl/);
+    });
+  });
+
   describe("Public sale", function () {
     before(async () => {
-      await timeTravel(86400);
+      await sale.connect(admin).setPublicSaleOpen(true);
     });
 
     it("should allow someone in not merkle tree to mint", async function () {
-      await expect(sale.connect(jill).purchase(1, { value: toWei("0.1") })).to.not.be.reverted;
+      await expect(sale.connect(jill).purchase(30, { value: toWei("3") })).to.not.be.reverted;
     });
   });
 });

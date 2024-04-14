@@ -57,7 +57,7 @@ module.exports = {
       blockGasLimit: 500000000,
       timeout: 100000000,
       accounts: {
-        count: 1000,
+        count: 10,
         mnemonic: SEED_PHRASE,
       },
     },
