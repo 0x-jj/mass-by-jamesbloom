@@ -55,6 +55,13 @@ contract MassRenderer is AccessControl {
     string valueName;
   }
 
+  struct ScriptDefinition {
+    string name;
+    uint8 wrapType;
+  }
+
+  ScriptDefinition[] public scriptDefinitions;
+
   constructor(
     address[] memory admins_,
     address _scriptyBuilderAddress,
@@ -71,6 +78,21 @@ contract MassRenderer is AccessControl {
     scriptyBuilderAddress = _scriptyBuilderAddress;
     bufferSize = bufferSize_;
     baseImageURI = baseImageURI_;
+
+    scriptDefinitions.push(ScriptDefinition("jb_mass_base", 0));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_goldWallets", 0));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_dataTools", 0));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_three", 0));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_parameters", 0));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_mersenneTwister", 0));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_util", 0));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_perlin", 0));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_ImprovedNoise", 0));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_OBJLoader", 0));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_objects", 2));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_textures", 2));
+    scriptDefinitions.push(ScriptDefinition("gunzipScripts-0.0.1", 0));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_main", 0));
   }
 
   function setMassContract(address _massContract) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -83,6 +105,16 @@ contract MassRenderer is AccessControl {
 
   function setRoyaltyPct(uint256 pct) public onlyRole(DEFAULT_ADMIN_ROLE) {
     royaltyPct = pct;
+  }
+
+  function setScriptDefinition(
+    uint256 idx,
+    string calldata scriptName,
+    uint256 wrapType
+  ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    require(idx < scriptDefinitions.length, "Index out of bounds");
+    scriptDefinitions[idx].name = scriptName;
+    scriptDefinitions[idx].wrapType = uint8(wrapType);
   }
 
   function getSeedVariables(uint256 tokenId) internal view returns (uint256, uint256) {
@@ -100,14 +132,14 @@ contract MassRenderer is AccessControl {
 
     return
       abi.encodePacked(
-        '{"name":"GOLD #',
+        '{"name":"Mass #',
         tid,
         '", "description":"GOLD is a dynamic cryptoart series where the artworks change in response to the collection',
         "'s own live market activity. The actions of GOLD collectors are part of this ever-changing artwork, where prices, levels of activity and on-chain provenance define the art itself.\\n\\n",
         "How does the market affect the way we see art? Does the sale price of an NFT change our perception of it? In GOLD, market factors literally influence the appearance of the dynamic imagery. From a sale to a listing, from the amount of time an artwork is held to whether it has recently been flipped, all this data is recorded by the contract and reflected live in each GOLD piece.\\n\\nGOLD is an artistic exploration of NFT market behaviour. It explores how we see in digital environments, and how market networks influence how we see. The full spectrum of possibilities for GOLD will take years to reveal.\\n\\nThe series is 100% on-chain - the artworks are composed and rendered directly from the blockchain - with live data streamed from an Ethereum node. Viewers can change the node by pressing",
         " 'G'.",
         '",',
-        '"external_url": "https://making.gold/token/',
+        '"external_url": "https://mass.is/token/',
         tid,
         '", "image": "',
         baseImageURI,
@@ -116,7 +148,7 @@ contract MassRenderer is AccessControl {
         ', "animation_url":"',
         animationUrl,
         '", "attributes": [',
-        getJSONAttributes(generateAllTraits(tokenId)),
+        //getJSONAttributes(generateAllTraits(tokenId)),
         "]}"
       );
   }
@@ -164,45 +196,17 @@ contract MassRenderer is AccessControl {
   }
 
   function tokenURI(uint256 tokenId) external view returns (string memory) {
-    WrappedScriptRequest[] memory requests = new WrappedScriptRequest[](5);
+    WrappedScriptRequest[] memory requests = new WrappedScriptRequest[](14);
 
-    (uint256 seedToken, uint256 tokenSeedIncrement) = getSeedVariables(tokenId);
-
-    (string memory contractMetricsSelector, string memory tokenMetricsSelector) = massContract.getSelectors();
-
-    uint256 baseTimestamp = massContract.baseTimestamp();
-
-    requests[0].name = "crashblossom_gold_base";
-    requests[0].wrapType = 0; // <script>[script]</script>
-    requests[0].contractAddress = scriptyStorageAddress;
-
-    requests[1].wrapType = 0; // <script>[script]</script>
-    requests[1].scriptContent = getConstantsScript(
-      Strings.toHexString(address(massContract)),
-      contractMetricsSelector,
-      tokenMetricsSelector,
-      toString(baseTimestamp),
-      toString(royaltyPct),
-      toString(tokenId),
-      toString(seedToken),
-      toString(tokenSeedIncrement)
-    );
-
-    requests[2].name = "crashblossom_gold_paths";
-    requests[2].wrapType = 2;
-    requests[2].contractAddress = scriptyStorageAddress;
-
-    requests[3].name = "gunzipScripts-0.0.1";
-    requests[3].wrapType = 0; // <script>[script]</script>
-    requests[3].contractAddress = scriptyStorageAddress;
-
-    requests[4].name = "crashblossom_gold_main_v1.2";
-    requests[4].wrapType = 0; // <script>[script]</script>
-    requests[4].contractAddress = scriptyStorageAddress;
+    for (uint256 i = 0; i < scriptDefinitions.length; i++) {
+      requests[i].name = scriptDefinitions[i].name;
+      requests[i].wrapType = scriptDefinitions[i].wrapType;
+      requests[i].contractAddress = scriptyStorageAddress;
+    }
 
     bytes memory base64EncodedHTMLDataURI = IScriptyBuilder(scriptyBuilderAddress).getEncodedHTMLWrapped(
       requests,
-      bufferSize + requests[1].scriptContent.length + 17 // "<script>".length + "</script>".length = 17
+      bufferSize
     );
 
     return

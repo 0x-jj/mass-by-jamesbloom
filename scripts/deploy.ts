@@ -81,72 +81,55 @@ async function main() {
   const { scriptyStorageContract, scriptyBuilderContract, wethContract } =
     await utilities.deployOrGetContracts(network.name);
 
-  await storeScript(scriptyStorageContract, "crashblossom_gold_base", "scripts/goldBase.js");
-
-  await storeScript(scriptyStorageContract, "crashblossom_gold_paths", "scripts/paths.js", true);
-
-  await storeScript(scriptyStorageContract, "gunzipScripts-0.0.1", "scripts/gunzipScripts-0.0.1.js");
-
-  await storeScript(scriptyStorageContract, "crashblossom_gold_main", "scripts/main.js");
-
-  const scriptRequests = [
-    {
-      name: "crashblossom_gold_base",
-      contractAddress: scriptyStorageContract.address,
-      contractData: 0,
-      wrapType: 0,
-      wrapPrefix: utilities.emptyBytes(),
-      wrapSuffix: utilities.emptyBytes(),
-      scriptContent: utilities.emptyBytes(),
-    },
-    {
-      name: "crashblossom_gold_paths",
-      contractAddress: scriptyStorageContract.address,
-      contractData: 0,
-      wrapType: 2,
-      wrapPrefix: utilities.emptyBytes(),
-      wrapSuffix: utilities.emptyBytes(),
-      scriptContent: utilities.emptyBytes(),
-    },
-    {
-      name: "gunzipScripts-0.0.1",
-      contractAddress: scriptyStorageContract.address,
-      contractData: 0,
-      wrapType: 0,
-      wrapPrefix: utilities.emptyBytes(),
-      wrapSuffix: utilities.emptyBytes(),
-      scriptContent: utilities.emptyBytes(),
-    },
-    {
-      name: "crashblossom_gold_main",
-      contractAddress: scriptyStorageContract.address,
-      contractData: 0,
-      wrapType: 0,
-      wrapPrefix: utilities.emptyBytes(),
-      wrapSuffix: utilities.emptyBytes(),
-      scriptContent: utilities.emptyBytes(),
-    },
+  const scripts: { name: string; path: string; wrapType: number }[] = [
+    { name: "jb_mass_base", path: "scripts/massBase.js", wrapType: 0 },
+    { name: "jb_mass_goldWallets", path: "scripts/goldWallets.js", wrapType: 0 },
+    { name: "jb_mass_dataTools", path: "scripts/dataTools.js", wrapType: 0 },
+    { name: "jb_mass_three", path: "scripts/three.js", wrapType: 0 },
+    { name: "jb_mass_parameters", path: "scripts/parameters.js", wrapType: 0 },
+    { name: "jb_mass_mersenneTwister", path: "scripts/mersenneTwister.js", wrapType: 0 },
+    { name: "jb_mass_util", path: "scripts/util.js", wrapType: 0 },
+    { name: "jb_mass_perlin", path: "scripts/perlin.js", wrapType: 0 },
+    { name: "jb_mass_ImprovedNoise", path: "scripts/ImprovedNoise.js", wrapType: 0 },
+    { name: "jb_mass_OBJLoader", path: "scripts/OBJLoader.js", wrapType: 0 },
+    { name: "jb_mass_objects", path: "scripts/objects.js", wrapType: 2 },
+    { name: "jb_mass_textures", path: "scripts/textures.js", wrapType: 2 },
+    { name: "gunzipScripts-0.0.1", path: "scripts/gunzipScripts-0.0.1.js", wrapType: 0 },
+    { name: "jb_mass_main", path: "scripts/main.js", wrapType: 0 },
   ];
 
-  const rawBufferSize = await scriptyBuilderContract.getBufferSizeForHTMLWrapped(
-    // @ts-ignore
-    scriptRequests
-  );
-  console.log("Buffer size:", rawBufferSize);
+  for (let i = 0; i < scripts.length; i++) {
+    const script = scripts[i];
+    await storeScript(scriptyStorageContract, script.name, script.path, script.wrapType === 2);
+  }
 
-  const renderer = await ethers.getContractFactory("GoldRenderer");
+  const scriptRequests = scripts.map((script) => {
+    return {
+      name: script.name,
+      contractAddress: scriptyStorageContract.address,
+      contractData: 0,
+      wrapType: script.wrapType,
+      wrapPrefix: utilities.emptyBytes(),
+      wrapSuffix: utilities.emptyBytes(),
+      scriptContent: utilities.emptyBytes(),
+    };
+  });
+
+  const rawBufferSize = await scriptyBuilderContract.getBufferSizeForHTMLWrapped(scriptRequests as any);
+
+  const renderer = await ethers.getContractFactory("MassRenderer");
   const rendererContract = await renderer.deploy(
     [dev.address, artist.address, dao.address],
     scriptyBuilderContract.address,
     scriptyStorageContract.address,
     rawBufferSize,
-    "https://arweave.net/gold/"
+    "https://arweave.net/mass/"
   );
   await rendererContract.deployed();
   console.log("Renderer Contract is deployed", rendererContract.address);
 
   const nftContract = await (
-    await ethers.getContractFactory("Gold")
+    await ethers.getContractFactory("Mass")
   ).deploy(
     [dev.address, artist.address, dao.address],
     [DEV_SPLIT, ARTIST_SPLIT, DAO_SPLIT],
@@ -161,32 +144,32 @@ async function main() {
   await nftContract.deployed();
   console.log("NFT Contract is deployed", nftContract.address);
 
-  await rendererContract.setGoldContract(nftContract.address);
+  await rendererContract.setMassContract(nftContract.address);
 
-  const merkleTree = getMerkleRootWithDiscounts(discounts);
+  // const merkleTree = getMerkleRootWithDiscounts(discounts);
 
-  const Auction = await ethers.getContractFactory("DutchAuction");
-  const auction = await Auction.deploy(
-    nftContract.address,
-    dev.address,
-    dao.address,
-    merkleTree.root,
-    network.name === "hardhat"
-      ? "0x00000000000076a84fef008cdabe6409d2fe638b"
-      : utilities.addressFor(network.name, "DelegateCash")
-  );
-  console.log("Auction Contract is deployed", auction.address);
-  const startAmount = ethers.utils.parseEther("2");
-  const endAmount = ethers.utils.parseEther("0.1");
-  const limit = ethers.utils.parseEther("10");
-  const refundDelayTime = 1 * 60;
-  const startTime = Math.floor(Date.now() / 1000) - 100;
-  const endTime = startTime + 1.5 * 3600;
+  // const Auction = await ethers.getContractFactory("DutchAuction");
+  // const auction = await Auction.deploy(
+  //   nftContract.address,
+  //   dev.address,
+  //   dao.address,
+  //   merkleTree.root,
+  //   network.name === "hardhat"
+  //     ? "0x00000000000076a84fef008cdabe6409d2fe638b"
+  //     : utilities.addressFor(network.name, "DelegateCash")
+  // );
+  // console.log("Auction Contract is deployed", auction.address);
+  // const startAmount = ethers.utils.parseEther("2");
+  // const endAmount = ethers.utils.parseEther("0.1");
+  // const limit = ethers.utils.parseEther("10");
+  // const refundDelayTime = 1 * 60;
+  // const startTime = Math.floor(Date.now() / 1000) - 100;
+  // const endTime = startTime + 1.5 * 3600;
 
-  await auction.setConfig(startAmount, endAmount, limit, refundDelayTime, startTime, endTime);
-  await auction.setSignerAddress(SIGNER);
-  await nftContract.setMinterAddress(auction.address);
-  console.log("Config, minter, signer are set");
+  // await auction.setConfig(startAmount, endAmount, limit, refundDelayTime, startTime, endTime);
+  // await auction.setSignerAddress(SIGNER);
+  // await nftContract.setMinterAddress(auction.address);
+  // console.log("Config, minter, signer are set");
 
   await nftContract.mint(dev.address);
   console.log("Minted 1 NFT");
