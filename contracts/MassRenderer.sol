@@ -3,8 +3,8 @@
 pragma solidity ^0.8.17;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Base64} from "solady/src/utils/Base64.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {Base64} from "solady/src/utils/Base64.sol";
 
 import {IScriptyBuilder, WrappedScriptRequest} from "./lib/scripty/IScriptyBuilder.sol";
 
@@ -115,6 +115,10 @@ contract MassRenderer is AccessControl {
     require(idx < scriptDefinitions.length, "Index out of bounds");
     scriptDefinitions[idx].name = scriptName;
     scriptDefinitions[idx].wrapType = uint8(wrapType);
+  }
+
+  function updateBufferSize(uint256 newSize) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    bufferSize = newSize;
   }
 
   function getSeedVariables(uint256 tokenId) internal view returns (uint256, uint256) {
