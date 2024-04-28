@@ -180,6 +180,14 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
     }
   }
 
+  function getHolderAddresses() public view returns (address[] memory) {
+    address[] memory owners = new address[](totalSupply);
+    for (uint256 i = 0; i < totalSupply; i++) {
+      owners[i] = ownerOf(i);
+    }
+    return owners;
+  }
+
   function getContractMetrics()
     external
     view
@@ -191,7 +199,8 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
       uint256,
       RoyaltyReceipt[HISTORY_LENGTH] memory,
       RoyaltyReceipt[HISTORY_LENGTH] memory,
-      uint256
+      uint256,
+      address[] memory
     )
   {
     return (
@@ -202,7 +211,8 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
       getHolderCount(),
       ethReceipts,
       wethReceipts,
-      totalSupply
+      totalSupply,
+      getHolderAddresses()
     );
   }
 

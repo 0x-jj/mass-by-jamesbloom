@@ -253,163 +253,57 @@ contract MassRenderer is AccessControl {
     return seed.current % 101;
   }
 
-  function generateNumberOfColours(Seed memory seed) public view returns (uint256) {
-    for (uint256 j = 0; j < 300; j++) {
-      for (uint256 i = 0; i < _number_of_colors.length; i++) {
-        uint256 r = nextInt(seed);
-        if (r > 100 - _number_of_color_chances[i]) {
-          return _number_of_colors[i];
-        }
+  function pickFromProbabilityArray(
+    uint256[][] memory arr,
+    Seed calldata randomSeed
+  ) internal returns (uint256[] memory) {
+    uint256 maxIterrations = 100;
+    uint256 probabilityInx = 0;
+
+    uint256[] memory pick = arr[nextInt(randomSeed) % arr.length];
+    for (uint256 i = 0; i < maxIterrations; i++) {
+      uint256[] memory candidate = arr[nextInt(randomSeed) % arr.length];
+      if (candidate[probabilityInx] > nextInt(randomSeed)) {
+        pick = candidate;
+        break;
       }
     }
-    return 2;
+    return pick;
   }
 
-  function generateColourNames(
-    uint256 numberOfColours,
-    Seed memory seed
-  ) public view returns (string[] memory) {
-    string[] memory selectedColorNames = new string[](numberOfColours);
-    for (uint256 i = 0; i < numberOfColours; i++) {
-      uint256 while_loop_breaker = 300;
-      string memory c;
-      while (while_loop_breaker > 0) {
-        while_loop_breaker--;
+  function generateObjects(Seed calldata randomSeed) internal returns (uint256[][][] memory) {
+    uint256[][4][] memory objects = new uint256[][4][](objectProbabilities.length);
+    uint256 n = 0;
 
-        for (uint256 j = 0; j < color_chance.length; j++) {
-          c = color_names[j];
-          uint256 r = nextInt(seed);
-          if (r > 100 - color_chance[j] && !findElement(selectedColorNames, c)) {
-            while_loop_breaker = 0;
-            break;
-          }
-        }
-      }
-      selectedColorNames[i] = c;
-    }
+    for (uint256 i = 0; i < objectProbabilities.length; i++) {
+      if (objectProbabilities[i][0][0][0] > nextInt(randomSeed)) {
+        uint256[] memory axis = objectProbabilities[i][1][
+          nextInt(randomSeed) % objectProbabilities[i][1].length
+        ];
+        uint256[] memory material = pickFromProbabilityArray(objectProbabilities[i][3], randomSeed);
 
-    return selectedColorNames;
-  }
+        uint256[] memory op = objectProbabilities[i][2][0];
 
-  function generateLayerPaths(Seed memory seed) public view returns (string[] memory) {
-    string[] memory selected_layer_paths = new string[](24);
-    uint8[3] memory types = [0, 1, 2];
+        uint256[] memory mats = new uint256[](1);
+        mats[0] = material[1];
 
-    uint256 count = 0;
-    for (uint256 j = 0; j < types.length; j++) {
-      for (uint256 i = 0; i < 8; i++) {
-        uint256[] memory _indexes;
-        uint256[] memory _probabilities;
-        if (types[j] == 0) {
-          if (i == 0) {
-            _indexes = layer_1_indexes;
-            _probabilities = layer_1_probabilities;
-          } else if (i == 1) {
-            _indexes = layer_2_indexes;
-            _probabilities = layer_2_probabilities;
-          } else if (i == 2) {
-            _indexes = layer_3_indexes;
-            _probabilities = layer_3_probabilities;
-          } else if (i == 3) {
-            _indexes = layer_4_indexes;
-            _probabilities = layer_4_probabilities;
-          } else if (i == 4) {
-            _indexes = layer_5_indexes;
-            _probabilities = layer_5_probabilities;
-          } else if (i == 5) {
-            _indexes = layer_6_indexes;
-            _probabilities = layer_6_probabilities;
-          } else if (i == 6) {
-            _indexes = layer_7_indexes;
-            _probabilities = layer_7_probabilities;
-          } else if (i == 7) {
-            _indexes = layer_8_indexes;
-            _probabilities = layer_8_probabilities;
-          }
-        } else if (types[j] == 1) {
-          _indexes = hodl_layer_indexes;
-          _probabilities = hodl_probabilities;
-        } else if (types[j] == 2) {
-          _indexes = milestone_layer_indexes;
-          _probabilities = milestone_probabilities;
-        }
-        uint256 while_loop_breaker = 300;
-        string memory p;
-        while (while_loop_breaker > 0) {
-          while_loop_breaker--;
-          for (uint256 i2 = 0; i2 < _probabilities.length; i2++) {
-            uint256 r = nextInt(seed);
-            p = paths[_indexes[i2]];
-            if (r > 100 - _probabilities[i2] && !findElement(selected_layer_paths, p)) {
-              while_loop_breaker = 0;
-              break;
-            }
-          }
-        }
-        selected_layer_paths[count] = p;
-        count++;
+        uint256[] memory mats2 = new uint256[](1);
+        mats2[0] = material[2];
+
+        objects[n] = [op, mats, axis, mats2];
+
+        n++;
       }
     }
-    return selected_layer_paths;
   }
 
   function generateAllTraits(uint256 tokenId) public view returns (Trait[] memory) {
     (uint256 tokenSeed, uint256 tokenSeedIncrement) = getSeedVariables(tokenId);
 
-    uint256 bonusPlateCount = 1;
-    uint256 bonusClusterCount = 1;
-
     Seed memory seed = Seed({current: tokenSeed, incrementor: tokenSeedIncrement});
 
-    uint256 numberOfColours = generateNumberOfColours(seed);
-    string[] memory selectedColours = generateColourNames(numberOfColours, seed);
-    string[] memory layerPaths = generateLayerPaths(seed);
-
-    Trait[] memory allTraits = new Trait[](
-      selectedColours.length + 8 + bonusPlateCount + bonusClusterCount + 1
-    );
-
-    uint256 currentIndex = 0;
-
-    allTraits[currentIndex] = Trait({typeName: "Palette Count", valueName: toString(numberOfColours)});
-
-    currentIndex++;
-
-    for (uint256 i = 0; i < 8; i++) {
-      allTraits[currentIndex] = Trait({
-        typeName: string(
-          abi.encodePacked(i % 2 == 0 ? "Gold Plate " : "Gold Cluster ", toString((i / 2) + 1))
-        ),
-        valueName: layerPaths[i]
-      });
-      currentIndex++;
-    }
-
-    for (uint256 i = 0; i < bonusPlateCount; i++) {
-      allTraits[currentIndex] = Trait({
-        typeName: string(abi.encodePacked("Bonus Plate ", toString(i + 1))),
-        valueName: layerPaths[i + 8]
-      });
-      currentIndex++;
-    }
-
-    for (uint256 i = 0; i < bonusClusterCount; i++) {
-      allTraits[currentIndex] = Trait({
-        typeName: string(abi.encodePacked("Bonus Cluster ", toString(i + 1))),
-        valueName: layerPaths[i + 16]
-      });
-      currentIndex++;
-    }
-
-    for (uint256 i = 0; i < selectedColours.length; i++) {
-      allTraits[currentIndex] = Trait({
-        typeName: string(abi.encodePacked("Palette ", toString(i + 1))),
-        valueName: selectedColours[i]
-      });
-      currentIndex++;
-    }
-
-    return allTraits;
+    uint256[] memory palettes = pickFromProbabilityArray(paletteProbabilties);
+    uint256[][] memory objects = generateObjects();
   }
 
   function stringEq(string memory a, string memory b) internal pure returns (bool result) {
@@ -458,322 +352,451 @@ contract MassRenderer is AccessControl {
     return string(buffer);
   }
 
-  string[] internal paths = [
-    "range",
-    "splash",
-    "plane",
-    "streetlight",
-    "glass",
-    "left",
-    "right",
-    "map",
-    "fracture",
-    "liquid",
-    "mosaic",
-    "cumulus",
-    "recall fragment",
-    "pointer",
-    "cliff",
-    "hill",
-    "city",
-    "sign",
-    "ship",
-    "plus",
-    "recall flock",
-    "bug",
-    "honeycomb",
-    "ice large",
-    "path",
-    "footprint small",
-    "planet",
-    "logo",
-    "multiplier",
-    "fragment",
-    "stratus",
-    "flock",
-    "river",
-    "candle",
-    "girder",
-    "elevation",
-    "urban",
-    "plan",
-    "floor",
-    "ruin",
-    "corridor",
-    "wall ",
-    "pie chart",
-    "house",
-    "pod",
-    "ceiling",
-    "window displaced",
-    "modern",
-    "blueprint",
-    "road",
-    "bell curve",
-    "beam thick",
-    "perspective",
-    "flame",
-    "window pane",
-    "window poly",
-    "window frame",
-    "frame",
-    "future",
-    "body",
-    "beam medium",
-    "head",
-    "rural",
-    "beam thin",
-    "ripple",
-    "brain",
-    "flame high",
-    "foothill",
-    "mnemonic",
-    "jet",
-    "mountain",
-    "rockies",
-    "fingerprint",
-    "haze",
-    "skeleton",
-    "skyline",
-    "comic",
-    "ribbon",
-    "wave",
-    "footprint large",
-    "ice small"
-  ];
-  uint256[] internal layer_1_indexes = [11, 34, 35, 2, 37, 38, 39, 40, 41, 43, 14, 23, 36, 3, 42];
-  uint256[] internal layer_1_probabilities = [2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 6, 11, 15, 15, 15];
-  uint256[] internal layer_2_indexes = [0, 7, 2, 6, 5, 1, 3, 4];
-  uint256[] internal layer_2_probabilities = [2, 7, 10, 10, 12, 14, 20, 25];
-  uint256[] internal layer_3_indexes = [0, 54, 44, 45, 46, 48, 5, 53, 6, 7, 4, 51, 52, 47, 10, 50, 13, 1, 49];
-  uint256[] internal layer_3_probabilities = [2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 7, 7, 7, 8, 10, 10];
-  uint256[] internal layer_4_indexes = [12, 8, 14, 9, 15, 11, 16, 13, 10];
-  uint256[] internal layer_4_probabilities = [2, 4, 4, 10, 10, 15, 15, 18, 22];
-  uint256[] internal layer_5_indexes = [
-    59,
-    8,
-    55,
-    56,
-    57,
-    9,
-    58,
-    60,
-    15,
-    62,
-    63,
-    16,
-    64,
-    66,
-    19,
-    26,
-    22,
-    61,
-    65
-  ];
-  uint256[] internal layer_5_probabilities = [2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 10, 10, 10, 10, 10];
-  uint256[] internal layer_6_indexes = [20, 22, 18, 21, 17, 24, 80, 25, 19];
-  uint256[] internal layer_6_probabilities = [2, 4, 5, 5, 8, 10, 15, 25, 26];
-  uint256[] internal layer_7_indexes = [
-    70,
-    30,
-    67,
-    32,
-    17,
-    71,
-    72,
-    24,
-    77,
-    78,
-    69,
-    73,
-    75,
-    74,
-    27,
-    76,
-    79,
-    68,
-    28
-  ];
-  uint256[] internal layer_7_probabilities = [2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 6, 7, 7, 7, 10, 12];
-  uint256[] internal layer_8_indexes = [30, 29, 31, 32, 27, 28, 26, 33];
-  uint256[] internal layer_8_probabilities = [2, 10, 10, 10, 12, 16, 20, 20];
-  uint256[] internal hodl_layer_indexes = [
-    6,
-    71,
-    5,
-    7,
-    8,
-    67,
-    17,
-    0,
-    59,
-    24,
-    52,
-    9,
-    64,
-    75,
-    78,
-    15,
-    32,
-    45,
-    1,
-    62,
-    70,
-    69,
-    11,
-    49,
-    4,
-    22,
-    16,
-    73,
-    65,
-    27,
-    76,
-    74,
-    61,
-    68,
-    3,
-    10,
-    13,
-    19,
-    26,
-    28,
-    30,
-    58
-  ];
-  uint256[] internal hodl_probabilities = [
-    6,
-    6,
-    7,
-    7,
-    7,
-    7,
-    7,
-    8,
-    8,
-    9,
-    10,
-    10,
-    10,
-    10,
-    10,
-    11,
-    11,
-    12,
-    12,
-    12,
-    12,
-    13,
-    15,
-    15,
-    15,
-    15,
-    15,
-    15,
-    16,
-    16,
-    16,
-    17,
-    18,
-    18,
-    20,
-    20,
-    20,
-    20,
-    20,
-    20,
-    20,
-    25
-  ];
-  uint256[] internal milestone_layer_indexes = [
-    21,
-    18,
-    14,
-    2,
-    7,
-    0,
-    5,
-    6,
-    8,
-    9,
-    15,
-    17,
-    24,
-    27,
-    32,
-    1,
-    4,
-    11,
-    16,
-    22,
-    3,
-    10,
-    13,
-    19,
-    26,
-    28,
-    30,
-    31,
-    29,
-    33
-  ];
-  uint256[] internal milestone_probabilities = [
-    3,
-    4,
-    5,
-    7,
-    7,
-    8,
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
-    10,
-    12,
-    15,
-    15,
-    15,
-    15,
-    20,
-    20,
-    20,
-    20,
-    20,
-    20,
-    20,
-    20,
-    25,
-    27
+  uint256[] test2 = [100, 1, 0, 100, 21, 47];
+
+  uint256[][][] private test = [[[100]], [[1]], [[0]], [[100, 21, 47]]];
+
+  function tt() internal view returns (uint256[][][] memory) {
+    return [[[100]], [[1]], [[0]], [[100, 21, 47]]];
+  }
+
+  uint256[][][][] internal objectProbabilities = [
+    [[[100]], [[1]], [[0]], [[100, 21, 47]]],
+    [
+      [[50]],
+      [[2]],
+      [[1]],
+      [
+        [10, 14, 125],
+        [10, 18, 116],
+        [10, 20, 80],
+        [10, 3, 97],
+        [10, 4, 83],
+        [10, 5, 99],
+        [10, 6, 49],
+        [10, 7, 177],
+        [10, 8, 4],
+        [10, 9, 185]
+      ]
+    ],
+    [
+      [[30]],
+      [[3]],
+      [[2]],
+      [
+        [10, 0, 196],
+        [10, 14, 73],
+        [10, 18, 126],
+        [10, 20, 68],
+        [10, 21, 187],
+        [10, 2, 154],
+        [10, 9, 131],
+        [10, 3, 204],
+        [10, 4, 130],
+        [10, 5, 181],
+        [10, 6, 46]
+      ]
+    ],
+    [
+      [[30]],
+      [[1]],
+      [[3]],
+      [
+        [10, 13, 74],
+        [10, 19, 70],
+        [10, 10, 23],
+        [10, 11, 71],
+        [16, 12, 32],
+        [16, 15, 12],
+        [10, 16, 137],
+        [10, 17, 36]
+      ]
+    ],
+    [[[50]], [[1]], [[4]], [[100, 0, 43]]],
+    [
+      [[20]],
+      [[5]],
+      [[5]],
+      [[10, 14, 145], [10, 0, 34], [10, 9, 168], [10, 3, 211], [10, 4, 173], [10, 5, 132]]
+    ],
+    [[[100]], [[2]], [[6]], [[10, 0, 26], [10, 14, 159], [10, 21, 150], [10, 4, 193]]],
+    [[[50]], [[3]], [[7]], [[10, 0, 77], [10, 9, 9], [10, 3, 141], [10, 4, 100], [10, 5, 13]]],
+    [
+      [[20]],
+      [[4]],
+      [[8]],
+      [
+        [10, 0, 59],
+        [10, 14, 201],
+        [10, 18, 156],
+        [10, 20, 118],
+        [10, 21, 136],
+        [10, 1, 0],
+        [10, 9, 115],
+        [10, 3, 7]
+      ]
+    ],
+    [[[100]], [[5]], [[9]], [[10, 14, 53], [10, 0, 188], [10, 9, 166], [10, 4, 35]]],
+    [
+      [[30]],
+      [[3]],
+      [[10]],
+      [
+        [10, 0, 20],
+        [10, 14, 144],
+        [10, 18, 107],
+        [10, 20, 207],
+        [10, 21, 105],
+        [10, 1, 214],
+        [10, 9, 217],
+        [10, 3, 155],
+        [10, 4, 89],
+        [10, 5, 198]
+      ]
+    ],
+    [
+      [[50]],
+      [[2]],
+      [[11]],
+      [[10, 0, 87], [10, 14, 42], [10, 18, 24], [10, 21, 205], [10, 3, 167], [10, 4, 210], [10, 5, 206]]
+    ],
+    [
+      [[0]],
+      [[1, 2, 5]],
+      [[12]],
+      [
+        [10, 14, 161],
+        [10, 18, 190],
+        [30, 20, 98],
+        [30, 21, 216],
+        [30, 1, 64],
+        [30, 9, 1],
+        [20, 3, 123],
+        [20, 4, 127],
+        [20, 5, 183]
+      ]
+    ],
+    [
+      [[0]],
+      [[2, 3, 4]],
+      [[13]],
+      [
+        [10, 14, 129],
+        [10, 18, 62],
+        [20, 20, 140],
+        [20, 9, 94],
+        [20, 21, 142],
+        [20, 3, 90],
+        [20, 4, 209],
+        [20, 5, 186],
+        [20, 6, 213]
+      ]
+    ],
+    [
+      [[0]],
+      [[1, 4, 5]],
+      [[14]],
+      [
+        [10, 14, 41],
+        [10, 18, 191],
+        [20, 20, 195],
+        [20, 9, 103],
+        [20, 21, 124],
+        [20, 3, 85],
+        [20, 4, 117],
+        [20, 5, 79],
+        [20, 6, 91]
+      ]
+    ],
+    [
+      [[100]],
+      [[1, 3, 5]],
+      [[15]],
+      [
+        [10, 14, 184],
+        [30, 18, 179],
+        [30, 21, 29],
+        [30, 20, 149],
+        [30, 9, 157],
+        [30, 1, 25],
+        [20, 3, 81],
+        [20, 4, 194],
+        [20, 5, 63]
+      ]
+    ],
+    [
+      [[0]],
+      [[2, 3, 4]],
+      [[16]],
+      [
+        [10, 14, 152],
+        [10, 18, 120],
+        [10, 21, 169],
+        [10, 20, 119],
+        [10, 9, 58],
+        [10, 1, 215],
+        [10, 4, 197],
+        [10, 5, 153]
+      ]
+    ]
   ];
 
-  // number of color chances
-
-  uint256[] internal _number_of_colors = [1, 8, 16, 4, 2, 3];
-  uint256[] internal _number_of_color_chances = [5, 5, 5, 10, 20, 50];
-
-  // The names of all color schemes
-  string[] internal color_names = [
-    "rhodium",
-    "palladium",
-    "vegas",
-    "platinum",
-    "ipanema",
-    "malibu",
-    "venicebeach",
-    "cannes",
-    "maldives",
-    "dusk",
-    "sunset",
-    "mist",
-    "southbeach",
-    "night",
-    "ibiza",
-    "dawn",
-    "goldenhour"
+  uint256[][] internal paletteProbabilties = [
+    [0, 10, 27],
+    [1, 5, 180],
+    [2, 5, 172],
+    [3, 10, 208],
+    [4, 10, 164],
+    [5, 10, 40],
+    [6, 10, 38],
+    [7, 5, 139],
+    [8, 10, 175],
+    [9, 5, 31],
+    [10, 5, 147],
+    [11, 10, 171],
+    [12, 5, 17],
+    [13, 10, 69],
+    [14, 10, 50],
+    [15, 10, 11],
+    [16, 10, 33],
+    [17, 10, 128],
+    [18, 5, 88],
+    [19, 1, 60],
+    [20, 10, 8],
+    [21, 10, 6],
+    [22, 5, 37],
+    [23, 1, 39],
+    [24, 1, 44],
+    [25, 10, 56],
+    [26, 10, 113],
+    [27, 1, 151],
+    [28, 10, 200],
+    [29, 10, 101],
+    [30, 5, 21],
+    [31, 1, 93],
+    [32, 10, 176],
+    [33, 10, 19],
+    [34, 1, 146]
   ];
-  uint256[] internal color_chance = [3, 4, 4, 5, 5, 5, 5, 5, 6, 7, 7, 8, 10, 12, 20, 30, 40];
+
+  string[] internal text_traits = [
+    "\u0071\u0047\u0039\u003e\u0049\u0074\u003f\u0070\u0020\u0063\u0048\u0027\u0029\u0059\u0040",
+    "\u002b\u002a\u0021\u2400\u002e\u0078\u0050\u0028\u002f\u003d\u0038\u005c\u2410\u0074\u2402",
+    "\u0079\u0075\u002b\u007c\u004d\u0038\u007d\u0022\u0068\u0075\u007c\u004d\u0074\u002a\u0029",
+    "\u002c\u2401\u0064\u007e\u0021\u007a\u0029\u2412\u2416\u0065\u0029\u007d\u2407\u2413\u241d",
+    "\u0065\u0061\u0057\u0047\u0020\u2405\u007e\u2400\u0025\u0047\u2403\u2414\u007b\u240a\u240f",
+    "\u0029\u2405\u0043\u0033\u0052\u0040\u0064\u2404\u0047\u0060\u007c\u002b\u240b\u003b\u0032",
+    "\u0064\u002d\u2401\u0032\u2411\u0075\u006b\u005c\u0057\u0020\u0022\u002a\u0059\u240f\u0078",
+    "\u0021\u003f\u241f\u0035\u0051\u007a\u0069\u006f\u0025\u0078\u2411\u241e\u0046\u004b\u0029",
+    "\u0063\u0058\u2400\u002a\u002b\u0035\u0026\u0042\u0076\u0072\u0078\u002f\u0064\u0078\u0053",
+    "\u0065\u2409\u0024\u241a\u0039\u0052\u241d\u2410\u003f\u0061\u0027\u002b\u0074\u007e\u0062",
+    "\u2408\u0037\u0023\u0036\u0023\u0023\u007b\u241d\u005b\u240f\u0032\u0024\u002c\u004b\u241b",
+    "\u0044\u2404\u0031\u0071\u0064\u0035\u240d\u0041\u007d\u004d\u2417\u0034\u004d\u002e\u0027",
+    "\u0066\u2402\u2421\u003a\u2411\u0066\u007b\u0049\u241c\u004e\u0047\u0050\u006d\u2412\u005a",
+    "\u2406\u0049\u004d\u2415\u2418\u241b\u0021\u002c\u240f\u003b\u0075\u0076\u0048\u0078\u005b",
+    "\u0032\u005c\u240f\u004a\u003a\u0030\u0076\u0033\u0061\u0069\u0059\u0035\u0028\u0033\u2418",
+    "\u2421\u240b\u0048\u0043\u005f\u0043\u0043\u2414\u0028\u0029\u0060\u241c\u0075\u240d\u241f",
+    "\u007a\u2403\u0063\u0071\u0048\u2413\u0023\u2404\u007d\u0058\u0072\u0029\u0035\u0028\u0033",
+    "\u007a\u0027\u005c\u2410\u0052\u0077\u004d\u007e\u0021\u2404\u0075\u0062\u240e\u0047\u0074",
+    "\u0041\u0059\u2419\u0047\u005d\u0060\u0079\u241a\u0076\u0075\u0065\u0074\u2416\u0067\u0071",
+    "\u0036\u2408\u0023\u005e\u241c\u0039\u006d\u240e\u0022\u002f\u0079\u0060\u0042\u007c\u2410",
+    "\u0048\u006e\u240f\u241c\u0035\u007b\u2412\u002e\u0055\u007b\u0040\u0057\u240b\u2407\u002f",
+    "\u002c\u005e\u006b\u0036\u0025\u0029\u002d\u0034\u0056\u2400\u240f\u003c\u0056\u0078\u0059",
+    "\u0063\u0075\u240f\u002f\u007e\u2407\u2408\u003d\u0032\u0052\u0064\u0039\u240d\u0065\u2409",
+    "\u0047\u2405\u003f\u005e\u2412\u007c\u0065\u0054\u0030\u0068\u0053\u0060\u0023\u0028\u005e",
+    "\u0020\u2405\u0023\u240c\u003d\u0024\u002a\u0027\u006b\u241d\u005a\u0037\u005c\u0070\u002e",
+    "\u002f\u2400\u002a\u241c\u003d\u0028\u005c\u004e\u004d\u2416\u2410\u005f\u0061\u0029\u0036",
+    "\u240d\u0033\u005c\u0056\u0076\u0047\u003b\u007a\u0061\u2410\u003a\u0035\u002e\u2415\u002a",
+    "\u007a\u2407\u004e\u0054\u2411\u240f\u2417\u0075\u007e\u0067\u003f\u0063\u0054\u2416\u0023",
+    "\u2419\u0061\u0039\u0060\u0055\u0042\u0028\u003c\u0056\u241d\u006c\u006f\u0064\u0069\u0040",
+    "\u0069\u005c\u0067\u0024\u241b\u0059\u2409\u0033\u002a\u0057\u0038\u006b\u0037\u007d\u0038",
+    "\u007a\u005c\u240d\u002f\u2405\u0038\u0037\u004c\u003c\u0033\u241e\u0028\u2414\u007d\u0028",
+    "\u0032\u0051\u004c\u0043\u0020\u003b\u0054\u0021\u0032\u0028\u241f\u003d\u002d\u005a\u241b",
+    "\u2406\u241a\u0063\u0041\u0044\u0058\u007e\u0040\u0047\u0070\u004b\u0066\u0076\u0047\u005f",
+    "\u003d\u0074\u0078\u0027\u0033\u2404\u002e\u0078\u0077\u0068\u0044\u003f\u0055\u0074\u004a",
+    "\u0031\u0045\u0067\u241c\u2415\u241e\u240d\u007b\u2405\u2400\u0038\u007c\u241c\u002f\u0063",
+    "\u0073\u2402\u0048\u0037\u2403\u0049\u0037\u0059\u004c\u0071\u0075\u0028\u241d\u240c\u0052",
+    "\u0048\u241e\u003b\u0064\u005e\u0039\u005e\u002b\u004f\u0073\u0048\u0059\u0029\u0056\u0043",
+    "\u240f\u004c\u2409\u0038\u0033\u002f\u240a\u002f\u0049\u241e\u005c\u240c\u2414\u0076\u004d",
+    "\u2401\u2418\u0035\u003f\u003a\u2419\u0071\u0042\u241e\u002e\u0047\u0059\u003e\u0032\u0041",
+    "\u0079\u0072\u2419\u0076\u240d\u0067\u0039\u003d\u0079\u0055\u0064\u0042\u002b\u0023\u007c",
+    "\u0026\u2412\u0077\u0070\u004d\u240d\u0023\u2411\u2402\u241a\u0070\u005a\u003d\u002d\u0022",
+    "\u2402\u0054\u007d\u0038\u005f\u2414\u007e\u004b\u002d\u241a\u0044\u003a\u2421\u0037\u006c",
+    "\u0058\u2411\u0034\u0057\u0063\u240e\u003f\u0036\u241e\u241b\u2407\u0027\u005f\u2402\u2406",
+    "\u0046\u0039\u0038\u0068\u0033\u2416\u0070\u005b\u005e\u0028\u002c\u005b\u0025\u240d\u2413",
+    "\u0067\u0065\u007c\u0075\u0026\u004d\u0070\u240e\u0048\u0036\u0027\u0071\u002a\u0026\u2419",
+    "\u0031\u2400\u240c\u2403\u006a\u005a\u0061\u0071\u2409\u0035\u005d\u0050\u0060\u240f\u006b",
+    "\u0069\u2407\u0067\u004a\u0077\u0051\u0050\u2407\u0074\u0040\u0064\u002d\u003a\u0066\u2407",
+    "\u0047\u0073\u2418\u2412\u0046\u003f\u2417\u005b\u006a\u0052\u2417\u0062\u0033\u0043\u2404",
+    "\u240b\u002c\u0051\u006a\u003d\u007a\u007d\u007c\u2404\u0037\u003a\u005c\u0064\u240b\u006c",
+    "\u0032\u0057\u0026\u003b\u005e\u2416\u003a\u2413\u0036\u006e\u0034\u0023\u0069\u0048\u2411",
+    "\u2401\u0068\u0022\u2400\u0078\u0057\u2409\u0034\u2417\u0021\u0075\u0068",
+    "\u004d\u0032\u0027\u006f\u003a\u0078\u002f\u007d\u2421\u0072\u0058\u0040",
+    "\u0069\u0071\u0059\u006f\u2410\u002f\u2421\u005a\u2418\u0030\u0062\u0071",
+    "\u0059\u003f\u004f\u0035\u240f\u0030\u002c\u003c\u0073\u005a\u0071\u2413",
+    "\u240f\u002d\u003d\u0074\u0024\u003f\u2418\u006b\u0066\u240b\u240f\u2409",
+    "\u007d\u0037\u0040\u005e\u0076\u004c\u2416\u0062\u0071\u0069\u241c\u003b",
+    "\u0030\u005b\u0023\u006c\u0064\u0025\u0071\u2421\u003d\u2400\u0052\u006e",
+    "\u0036\u007e\u0024\u003f\u241b\u0069\u0075\u241c\u0020\u0079\u0038\u2403",
+    "\u0050\u2421\u240f\u0028\u2406\u0039\u006e\u003e\u002a\u0063\u0046\u006d",
+    "\u006d\u006b\u0045\u0033\u0074\u240b\u2410\u0060\u002b\u0071\u005d\u0021",
+    "\u006f\u0078\u240a\u0021\u0046\u0061\u2404\u0061\u0069\u0028\u0057\u004f",
+    "\u0023\u2415\u007c\u2417\u2407\u0056\u240a\u0066\u007b\u240c\u0047\u0054",
+    "\u0041\u0027\u007c\u0043\u240a\u004f\u002c\u0039\u0075\u002f\u0041\u240f",
+    "\u005e\u0065\u240f\u0071\u0020\u0074\u003a\u0038\u2409\u240b\u0061\u2419",
+    "\u2406\u003d\u0068\u0045\u0074\u0057\u240f\u0037\u0021\u2407\u2412\u0037",
+    "\u241c\u0049\u0057\u0068\u0046\u0063\u0058\u0055\u0070\u0063\u0020\u0022",
+    "\u0061\u0070\u0077\u0042\u0054\u0037\u0056\u0061\u0041\u003a\u0079\u0033",
+    "\u007b\u0041\u240c\u0053\u0061\u2405\u0029\u002a\u005e\u2413\u007c\u0032",
+    "\u005e\u0052\u0031\u005f\u2409\u0039\u0075\u0022\u0062\u002f\u0032\u002e",
+    "\u0065\u0029\u2408\u0035\u2404\u0064\u003f\u0075\u2403\u006c\u0077\u0077",
+    "\u003f\u005a\u0051\u0053\u0047\u006a\u0032\u0051\u0048\u0034\u2402\u241f",
+    "\u2421\u002b\u0051\u0045\u0024\u0053\u2407\u0026\u0057\u005d\u0037\u0067",
+    "\u241a\u0039\u2417\u0024\u240e\u2419\u0033\u005f\u0056\u240b\u003f\u0033",
+    "\u007b\u240f\u0070\u0069\u005b\u004f\u0068\u0024\u0077\u004a\u0050\u0033",
+    "\u2412\u241d\u004f\u2408\u007b\u0062\u0065\u0038\u0029\u0040\u005d\u240e",
+    "\u241f\u0021\u0067\u006c\u0074\u2417\u002a\u0062\u006e\u0024\u0023\u006d",
+    "\u0035\u0070\u2410\u004f\u0043\u003c\u241f\u0071\u0067\u0035\u241d\u0045",
+    "\u004d\u0058\u0061\u0028\u0025\u0065\u005e\u003d\u2409\u002a\u005f\u241c",
+    "\u0026\u003d\u0041\u0052\u2414\u2407\u0042\u0030\u0021\u0038\u2402\u0079",
+    "\u240e\u002e\u002c\u0060\u0072\u2405\u006b\u0054\u0056\u0046\u2408\u0073",
+    "\u007b\u0034\u005a\u006d\u0071\u0062\u241b\u0024\u0039\u002d\u006f\u004e",
+    "\u0065\u0077\u0071\u2410\u2406\u240a\u002f\u0031\u0026\u241a\u004f\u0059",
+    "\u2418\u006d\u0043\u005c\u0058\u0037\u0035\u0063\u0070\u007b\u005c\u006a",
+    "\u004e\u0061\u0025\u241e\u0071\u0044\u0025\u2414\u002d\u0054\u2418\u2416",
+    "\u0031\u003b\u003e\u0047\u003f\u003c\u005c\u240c\u0051\u0033\u005c\u003d",
+    "\u0041\u2414\u2406\u006d\u002a\u0050\u0029\u2415\u0029\u0058\u0053\u241b",
+    "\u006a\u0067\u0043\u2417\u2406\u0035\u2403\u240a\u0023\u002d\u241f\u0061",
+    "\u0031\u240c\u0025\u0047\u240a\u0078\u0042\u0063\u241e\u0026\u0037\u005b",
+    "\u2406\u241a\u003d\u2409\u2416\u0058\u0026\u0047\u005c\u0027\u003c\u0023",
+    "\u005a\u2417\u0049\u004a\u241a\u2409\u0072\u0071\u0043\u006e\u0063\u0034",
+    "\u0026\u0078\u007b\u241c\u0069\u2400\u0046\u0059\u006e\u0021\u0034\u0055",
+    "\u2409\u241c\u2419\u0031\u2400\u241c\u002c\u2414\u2413\u2415\u2404\u0061",
+    "\u2400\u0032\u2418\u0024\u0078\u005f\u0076\u0074\u005d\u002d\u0060\u0026",
+    "\u0074\u0059\u240c\u0036\u002c\u0025\u240d\u0057\u0066\u0068\u0049\u0043",
+    "\u0045\u0050\u240e\u003b\u0028\u0021\u0040\u0075\u0020\u0073\u0046\u0054",
+    "\u0029\u0042\u0063\u0046\u005a\u0045\u240c\u006b\u2413\u0077\u007c\u0039",
+    "\u2400\u0056\u0064\u2411\u240b\u004d\u240c\u0043\u2405\u240b\u006f\u002a",
+    "\u0053\u006c\u2403\u2400\u0065\u004b\u0052\u005b\u005f\u005d\u0028\u241a",
+    "\u241b\u0062\u2403\u0040\u0027\u004d\u2409\u004d\u004d\u241a\u0030\u0054",
+    "\u0073\u0058\u0067\u0030\u2401\u2417\u2421\u003a\u241c\u0020\u2411\u003f",
+    "\u0064\u0028\u0030\u0075\u2400\u0054\u0021",
+    "\u0039\u2413\u240c\u0022\u002b\u0067\u0034",
+    "\u0023\u0067\u002b\u005e\u0033\u2409\u0021",
+    "\u2411\u241b\u240b\u241e\u0043\u2401\u0021",
+    "\u0034\u2418\u0034\u005c\u004f\u0062\u0049",
+    "\u240c\u0052\u240c\u0047\u0076\u0025\u2417",
+    "\u0054\u2410\u240b\u2415\u241a\u005a\u0057",
+    "\u0046\u2409\u002f\u0027\u0037\u005f\u0055",
+    "\u2417\u0040\u0030\u2410\u004b\u0060\u005c",
+    "\u002e\u2412\u2403\u0072\u006b\u0043",
+    "\u240b\u005b\u006c\u0071\u004d\u0069\u007c",
+    "\u2414\u0054\u240a\u240f\u2411\u0027\u241c",
+    "\u240c\u0054\u2418\u2418\u0040\u007a\u240b",
+    "\u241c\u0069\u0068\u007d\u0054\u2409\u0051",
+    "\u0074\u006d\u0020\u2421\u2404\u0056\u241f",
+    "\u0030\u003e\u0055\u0040\u003d\u003a\u0026",
+    "\u003f\u0033\u2407\u004e\u002a\u2410\u005e",
+    "\u0024\u0022\u2401\u0051\u003e\u007e\u2402",
+    "\u0073\u003d\u004f\u0052\u0035\u0047\u003e",
+    "\u0052\u0067\u0056\u0068\u0056\u006a\u002b",
+    "\u240c\u003a\u2416\u2404\u0031\u240d\u0062",
+    "\u0052\u2411\u2416\u2400\u240c\u241a\u0074",
+    "\u2409\u0077\u002a\u006c\u004f\u006c\u005a",
+    "\u005f\u241f\u2418\u0079\u0069\u0061\u0053",
+    "\u0048\u0048\u0038\u0056\u0039\u003f\u0024",
+    "\u003c\u0068\u0050\u2408\u0078\u0037\u0075",
+    "\u2403\u007a\u0038\u0064\u003e\u003e\u0040",
+    "\u0047\u002b\u2406\u0032\u005c\u007a\u004c",
+    "\u2400\u0042\u0037\u0049\u0038\u2415\u0061",
+    "\u0049\u2421\u240e\u0066\u005c\u240d\u003a",
+    "\u0059\u0027\u006e\u0071\u0072\u2402\u0028",
+    "\u003b\u0043\u2403\u2418\u0047\u0059\u2410",
+    "\u2400\u0069\u0041\u2418\u0048\u007d\u0067",
+    "\u005d\u2415\u0040\u0032\u2415\u003d\u007b",
+    "\u0037\u0021\u005c\u006e\u0032\u0027\u003c",
+    "\u241f\u0069\u0027\u0075\u2401\u0055\u2417",
+    "\u0027\u002a\u0052\u0058\u002f\u007a\u007c",
+    "\u0049\u0062\u240d\u0043\u241a\u0056\u241d",
+    "\u241d\u0024\u0070\u0061\u0039\u0045\u2407",
+    "\u0021\u2402\u004f\u0053\u006a\u0072\u0033",
+    "\u2409\u0079\u0025\u0039\u002a\u003d\u0063",
+    "\u0070\u0040\u003c\u2414\u0067\u2415\u002e",
+    "\u0037\u2405\u2407\u004e\u0066\u2418\u2408",
+    "\u0055\u2419\u2406\u0028\u0043\u0049\u0059",
+    "\u0028\u0079\u240c\u0033\u0022\u2418\u0054",
+    "\u0068\u0024\u005e\u240e\u2413\u0064\u0072",
+    "\u0079\u005f\u0020\u005f\u007a\u005a\u0047",
+    "\u002f\u2421\u004b\u004b\u240a\u0074\u0069",
+    "\u2415\u0055\u005a\u0037\u007e\u0035\u0061",
+    "\u003e\u006c\u2415\u2402\u2419\u0049\u2402",
+    "\u0074\u006d\u240b\u003a\u003d",
+    "\u0070\u0056\u241e\u2409\u0064",
+    "\u0060\u006e\u003b\u004e\u240c",
+    "\u007c\u0070\u241b\u2407\u2414",
+    "\u0050\u003c\u003d\u002f\u0054",
+    "\u0070\u2412\u0068\u0044\u0076",
+    "\u005a\u003b\u0054\u2411\u0024",
+    "\u0078\u0062\u002c\u240e\u0047",
+    "\u2409\u0066\u0028\u003b\u0043",
+    "\u0020\u0020\u0020\u006f\u002f",
+    "\u0072\u0031\u007d\u0077\u0038",
+    "\u2412\u241e\u0058\u240f\u2421",
+    "\u0033\u2413\u007c\u002e\u0025",
+    "\u0047\u002f\u002c\u0061\u0026",
+    "\u002b\u0045\u2414\u004b\u003a",
+    "\u005a\u007b\u006b\u0058\u2416",
+    "\u003f\u2409\u0066\u0035\u0021",
+    "\u0032\u0062\u2405\u0072\u0062",
+    "\u004d\u2403\u0048\u241a\u241c",
+    "\u2410\u005c\u005a\u0024\u0051",
+    "\u2404\u0059\u2419\u005b\u0043",
+    "\u0031\u0057\u0036\u0069\u0077",
+    "\u2419\u007e\u0041\u003a\u004b",
+    "\u2400\u003f\u0056\u004c\u003d",
+    "\u006f\u0024\u2405\u0026\u003d",
+    "\u0057\u241e\u0045\u0032\u0077",
+    "\u0068\u004c\u0065\u003e\u0042",
+    "\u240e\u004a\u0072\u0033\u240f",
+    "\u2414\u0047\u006c\u2400\u0066",
+    "\u2406\u004f\u0036\u004c\u2413",
+    "\u2403\u0031\u0022\u0027\u002f",
+    "\u2405\u240b\u241d\u240a\u2402",
+    "\u2408\u0071\u0044\u003e\u006d",
+    "\u0022\u0026\u240c\u0078\u007a",
+    "\u0036\u2414\u0073\u0050\u2419",
+    "\u240c\u241e\u0059\u0037\u2401",
+    "\u0021\u003c\u003f\u005a\u0053",
+    "\u0077\u0035\u2404\u241f\u241a",
+    "\u003b\u007b\u0072\u241f\u2404",
+    "\u241d\u0073\u007c\u0039\u007e",
+    "\u003f\u240b\u0059\u240d\u006c",
+    "\u006e\u0069\u006e\u0043\u2415",
+    "\u0065\u0055\u241b\u0022\u0063",
+    "\u0031\u0060\u0035\u003d",
+    "\u0059\u0052\u0068\u0043\u240b",
+    "\u0034\u240b\u006e\u0049\u0072",
+    "\u0032\u2401\u002d\u0030\u2418",
+    "\u002f\u0028\u0076\u2407\u002a",
+    "\u0060\u007e\u003e\u005e\u0053",
+    "\u2413\u003b\u0049\u0042\u0056",
+    "\u2417\u2409\u240b\u241f\u240a\u240b\u2404",
+    "\u2421\u2402\u2400\u241d\u2416\u2418\u240a",
+    "\u240b\u2411\u2405\u241a\u2411\u2403\u2401",
+    "\u2401\u240e\u240d\u2407\u2404\u241e\u2410",
+    "\u240d\u2412\u2414\u2401\u2409\u2415\u2419",
+    "\u240c\u2419\u2408\u2414\u240c\u240b\u2419",
+    "\u240b\u2401\u2413\u2401\u2411\u2410\u2409",
+    "\u240a\u241b\u241e\u240e\u2411",
+    "\u2403\u2400\u240a\u240d\u2411",
+    "\u2418\u2415\u2421\u240c\u240b",
+    "\u2403\u240f\u241c\u2407\u2404",
+    "\u2409\u2411\u2406\u241c\u2415",
+    "\u2400\u241c\u2419\u241b\u2421",
+    "\u240c\u2400\u240f\u240e\u2408",
+    "\u240c\u2408\u241f\u240e\u240d",
+    "\u2410\u2403\u2408\u2416\u241b",
+    "\u240b\u2417\u2401\u2419\u2416",
+    "\u2411\u2412\u2400\u2409\u2410"
+  ];
 }
