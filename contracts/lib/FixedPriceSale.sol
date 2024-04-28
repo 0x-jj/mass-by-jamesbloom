@@ -154,7 +154,8 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
       bool isDelegateValid = delegateCash.checkDelegateForContract(
         msg.sender,
         vaultAddress,
-        address(nftContractAddress)
+        address(nftContractAddress),
+        ""
       );
       require(isDelegateValid, "invalid delegate-vault pairing");
       minter = vaultAddress;

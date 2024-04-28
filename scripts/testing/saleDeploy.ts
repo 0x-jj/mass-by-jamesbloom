@@ -58,7 +58,7 @@ async function main() {
   };
 
   const sale = await Sale.deploy(
-    toWei("0.3"),
+    toWei("0.25"),
     sellerConfig,
     dao.address,
     Math.floor(Date.now() / 1000) - 100,
