@@ -3,28 +3,85 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // functions
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-let seed = 14566587;
-let increment = 586931;
+seed = 14566587;
+increment = 586931;
+nCallsRandomIntFunc = 0; // used for debugging
 
 function randomInt() {
+  nCallsRandomIntFunc++;
   // returns value between 0 and 100
   seed = (1664525 * seed + increment) % 89652912;
   return seed % 101;
 }
 
-function pickFromProbabilityArray(arr: number[][], probabilityInx: number, maxIterrations = 100): number[] {
-  // Picks an item from an array where items are arrays with one
-  // of the items being the probability of picking the parent item.
-  // Example [[20], [30], [50]]
-  let pick = arr[randomInt() % arr.length];
-  for (let i = 0; i < maxIterrations; i++) {
-    let candidate = arr[randomInt() % arr.length];
-    if (candidate[probabilityInx] > randomInt()) {
-      pick = candidate;
+function pickFromProbabilityArray(arr) {
+  // arr is 1d array containing groups of 3 int each
+  // the first int is assumed to be the probability
+  if (arr.length == 3) {
+    return arr;
+  }
+  let pick = randomInt() % (arr.length - 3);
+  let pickIndex = Math.floor(pick / 3) * 3;
+  for (let i = 0; i < 100; i++) {
+    let r = randomInt();
+    let candidate = r % (arr.length - 3);
+    let candidateIndex = Math.floor(candidate / 3) * 3;
+    let candidateProbability = arr[candidateIndex];
+    if (!candidateProbability) {
+      console.log("no");
+    }
+    if (candidateProbability > randomInt()) {
+      pickIndex = candidateIndex;
       break;
     }
   }
-  return pick;
+  let pickArray = arr.slice(pickIndex, pickIndex + 3);
+  return pickArray;
+}
+
+function generatePaletteTraits(probabilities) {
+  // returns array of 3 integers
+  // Format: [probability, index, trait name index]
+  return pickFromProbabilityArray(probabilities);
+}
+
+function generateObjectTraits(probabilities) {
+  /*
+    returns array of integers where each 3 consecutive ones represent an object
+    Format: [
+       object index, material index, trait name index,
+       object index 2, material index 2, trait name index 2,
+       ...
+    ]
+    */
+
+  let currentObjectProbability = 256;
+  let currentObjectIndex = 256;
+  let currentObjectMaterialProbabilities = [];
+  let objects = [];
+  for (let i = 0; i < probabilities.length; i++) {
+    let v = probabilities[i];
+    if (v == 255) {
+      if (currentObjectProbability > randomInt()) {
+        let material = pickFromProbabilityArray(currentObjectMaterialProbabilities);
+        let materialIndex = material[1];
+        let materialTraitName = material[2];
+        objects.push(currentObjectIndex);
+        objects.push(materialIndex);
+        objects.push(materialTraitName);
+      }
+      currentObjectProbability = 256;
+      currentObjectIndex = 256;
+      currentObjectMaterialProbabilities = [];
+    } else if (currentObjectProbability == 256) {
+      currentObjectProbability = v;
+    } else if (currentObjectIndex == 256) {
+      currentObjectIndex = v;
+    } else {
+      currentObjectMaterialProbabilities.push(v);
+    }
+  }
+  return objects;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,7 +91,7 @@ function pickFromProbabilityArray(arr: number[][], probabilityInx: number, maxIt
 // Text traits unicode strings. The index in this array matches the text trait index in the materials array in objectProbabilities.
 // For example this object probability array [100,[1],0,[[100,21,30]]] means:
 // 100% probability, axis 1, object 0, material 21, material probability 100, text trait 30
-let text_traits = [
+text_traits = [
   "\u0071\u0047\u0039\u003e\u0049\u0074\u003f\u0070\u0020\u0063\u0048\u0027\u0029\u0059\u0040",
   "\u002b\u002a\u0021\u2400\u002e\u0078\u0050\u0028\u002f\u003d\u0038\u005c\u2410\u0074\u2402",
   "\u0079\u0075\u002b\u007c\u004d\u0038\u007d\u0022\u0068\u0075\u007c\u004d\u0074\u002a\u0029",
@@ -257,298 +314,46 @@ let text_traits = [
 
 // Each item is the probability of that palette, the index will be used by the JS code.
 // Format: [index, probability, text trait index]
-let paletteProbabilties = [
-  [0, 10, 27],
-  [1, 5, 180],
-  [2, 5, 172],
-  [3, 10, 208],
-  [4, 10, 164],
-  [5, 10, 40],
-  [6, 10, 38],
-  [7, 5, 139],
-  [8, 10, 175],
-  [9, 5, 31],
-  [10, 5, 147],
-  [11, 10, 171],
-  [12, 5, 17],
-  [13, 10, 69],
-  [14, 10, 50],
-  [15, 10, 11],
-  [16, 10, 33],
-  [17, 10, 128],
-  [18, 5, 88],
-  [19, 1, 60],
-  [20, 10, 8],
-  [21, 10, 6],
-  [22, 5, 37],
-  [23, 1, 39],
-  [24, 1, 44],
-  [25, 10, 56],
-  [26, 10, 113],
-  [27, 1, 151],
-  [28, 10, 200],
-  [29, 10, 101],
-  [30, 5, 21],
-  [31, 1, 93],
-  [32, 10, 176],
-  [33, 10, 19],
-  [34, 1, 146],
+let paletteProbabilities = [
+  0, 10, 27, 1, 5, 180, 2, 5, 172, 3, 10, 208, 4, 10, 164, 5, 10, 40, 6, 10, 38, 7, 5, 139, 8, 10, 175, 9, 5,
+  31, 10, 5, 147, 11, 10, 171, 12, 5, 17, 13, 10, 69, 14, 10, 50, 15, 10, 11, 16, 10, 33, 17, 10, 128, 18, 5,
+  88, 19, 1, 60, 20, 10, 8, 21, 10, 6, 22, 5, 37, 23, 1, 39, 24, 1, 44, 25, 10, 56, 26, 10, 113, 27, 1, 151,
+  28, 10, 200, 29, 10, 101, 30, 5, 21, 31, 1, 93, 32, 10, 176, 33, 10, 19, 34, 1, 146,
+];
+// Each array contains axis index, object index, probability materials probabilities array
+// material probabilities are at the end of the group and can be more than 1
+// the int 255 is used as delimiter between objects
+// Format: [object probability, object index, material probability, material index, trait name..., 255,...]
+let objectProbabilities = [
+  100, 0, 100, 21, 47, 255, 100, 1, 100, 21, 125, 255, 100, 2, 100, 21, 116, 255, 50, 3, 10, 14, 80, 10, 18,
+  97, 10, 20, 83, 10, 3, 99, 10, 4, 49, 10, 5, 177, 10, 6, 4, 10, 7, 185, 10, 8, 196, 10, 9, 73, 255, 30, 4,
+  10, 0, 126, 10, 14, 68, 10, 18, 187, 10, 20, 154, 10, 21, 131, 10, 2, 204, 10, 9, 130, 10, 3, 181, 10, 4,
+  46, 10, 5, 74, 10, 6, 70, 255, 30, 5, 10, 13, 23, 10, 19, 71, 10, 10, 32, 10, 11, 12, 16, 12, 137, 16, 15,
+  36, 10, 16, 43, 10, 17, 145, 255, 50, 6, 100, 0, 34, 255, 20, 7, 10, 14, 168, 10, 0, 211, 10, 9, 173, 10, 3,
+  132, 10, 4, 26, 10, 5, 159, 255, 100, 8, 10, 0, 150, 10, 14, 193, 10, 21, 77, 10, 4, 9, 255, 50, 9, 10, 0,
+  141, 10, 9, 100, 10, 3, 13, 10, 4, 59, 10, 5, 201, 255, 20, 10, 10, 0, 156, 10, 14, 118, 10, 18, 136, 10,
+  20, 0, 10, 21, 115, 10, 1, 7, 10, 9, 53, 10, 3, 188, 255, 100, 11, 10, 14, 166, 10, 0, 35, 10, 9, 20, 10, 4,
+  144, 255, 30, 12, 10, 0, 107, 10, 14, 207, 10, 18, 105, 10, 20, 214, 10, 21, 217, 10, 1, 155, 10, 9, 89, 10,
+  3, 198, 10, 4, 87, 10, 5, 42, 255, 50, 13, 10, 0, 24, 10, 14, 205, 10, 18, 167, 10, 21, 210, 10, 3, 206, 10,
+  4, 161, 10, 5, 190, 255, 0, 14, 10, 14, 98, 10, 18, 216, 30, 20, 64, 30, 21, 1, 30, 1, 123, 30, 9, 127, 20,
+  3, 183, 20, 4, 129, 20, 5, 62, 255, 0, 15, 10, 14, 140, 10, 18, 94, 20, 20, 142, 20, 9, 90, 20, 21, 209, 20,
+  3, 186, 20, 4, 213, 20, 5, 41, 20, 6, 191, 255, 0, 16, 10, 14, 195, 10, 18, 103, 20, 20, 124, 20, 9, 85, 20,
+  21, 117, 20, 3, 79, 20, 4, 91, 20, 5, 184, 20, 6, 179, 255, 100, 17, 10, 14, 29, 30, 18, 149, 30, 21, 157,
+  30, 20, 25, 30, 9, 81, 30, 1, 194, 20, 3, 63, 20, 4, 152, 20, 5, 120, 255, 0, 18, 10, 14, 169, 10, 18, 119,
+  10, 21, 58, 10, 20, 215, 10, 9, 197, 10, 1, 153, 10, 4, 16, 10, 5, 114, 255,
 ];
 
-// Each array contains axis index, object index, probability materials probabilities array
-// material probabilities array contains the probability and the index of the material
-// Format: [probability, [axis], object idex, [[probability, material index, "trait name"]]]
-let objectProbabilities = [
-  [[[100]], [[1]], [[0]], [[100, 21, 47]]],
-  [
-    [[50]],
-    [[2]],
-    [[1]],
-    [
-      [10, 14, 125],
-      [10, 18, 116],
-      [10, 20, 80],
-      [10, 3, 97],
-      [10, 4, 83],
-      [10, 5, 99],
-      [10, 6, 49],
-      [10, 7, 177],
-      [10, 8, 4],
-      [10, 9, 185],
-    ],
-  ],
-  [
-    [[30]],
-    [[3]],
-    [[2]],
-    [
-      [10, 0, 196],
-      [10, 14, 73],
-      [10, 18, 126],
-      [10, 20, 68],
-      [10, 21, 187],
-      [10, 2, 154],
-      [10, 9, 131],
-      [10, 3, 204],
-      [10, 4, 130],
-      [10, 5, 181],
-      [10, 6, 46],
-    ],
-  ],
-  [
-    [[30]],
-    [[1]],
-    [[3]],
-    [
-      [10, 13, 74],
-      [10, 19, 70],
-      [10, 10, 23],
-      [10, 11, 71],
-      [16, 12, 32],
-      [16, 15, 12],
-      [10, 16, 137],
-      [10, 17, 36],
-    ],
-  ],
-  [[[50]], [[1]], [[4]], [[100, 0, 43]]],
-  [
-    [[20]],
-    [[5]],
-    [[5]],
-    [
-      [10, 14, 145],
-      [10, 0, 34],
-      [10, 9, 168],
-      [10, 3, 211],
-      [10, 4, 173],
-      [10, 5, 132],
-    ],
-  ],
-  [
-    [[100]],
-    [[2]],
-    [[6]],
-    [
-      [10, 0, 26],
-      [10, 14, 159],
-      [10, 21, 150],
-      [10, 4, 193],
-    ],
-  ],
-  [
-    [[50]],
-    [[3]],
-    [[7]],
-    [
-      [10, 0, 77],
-      [10, 9, 9],
-      [10, 3, 141],
-      [10, 4, 100],
-      [10, 5, 13],
-    ],
-  ],
-  [
-    [[20]],
-    [[4]],
-    [[8]],
-    [
-      [10, 0, 59],
-      [10, 14, 201],
-      [10, 18, 156],
-      [10, 20, 118],
-      [10, 21, 136],
-      [10, 1, 0],
-      [10, 9, 115],
-      [10, 3, 7],
-    ],
-  ],
-  [
-    [[100]],
-    [[5]],
-    [[9]],
-    [
-      [10, 14, 53],
-      [10, 0, 188],
-      [10, 9, 166],
-      [10, 4, 35],
-    ],
-  ],
-  [
-    [[30]],
-    [[3]],
-    [[10]],
-    [
-      [10, 0, 20],
-      [10, 14, 144],
-      [10, 18, 107],
-      [10, 20, 207],
-      [10, 21, 105],
-      [10, 1, 214],
-      [10, 9, 217],
-      [10, 3, 155],
-      [10, 4, 89],
-      [10, 5, 198],
-    ],
-  ],
-  [
-    [[50]],
-    [[2]],
-    [[11]],
-    [
-      [10, 0, 87],
-      [10, 14, 42],
-      [10, 18, 24],
-      [10, 21, 205],
-      [10, 3, 167],
-      [10, 4, 210],
-      [10, 5, 206],
-    ],
-  ],
-  [
-    [[0]],
-    [[1, 2, 5]],
-    [[12]],
-    [
-      [10, 14, 161],
-      [10, 18, 190],
-      [30, 20, 98],
-      [30, 21, 216],
-      [30, 1, 64],
-      [30, 9, 1],
-      [20, 3, 123],
-      [20, 4, 127],
-      [20, 5, 183],
-    ],
-  ],
-  [
-    [[0]],
-    [[2, 3, 4]],
-    [[13]],
-    [
-      [10, 14, 129],
-      [10, 18, 62],
-      [20, 20, 140],
-      [20, 9, 94],
-      [20, 21, 142],
-      [20, 3, 90],
-      [20, 4, 209],
-      [20, 5, 186],
-      [20, 6, 213],
-    ],
-  ],
-  [
-    [[0]],
-    [[1, 4, 5]],
-    [[14]],
-    [
-      [10, 14, 41],
-      [10, 18, 191],
-      [20, 20, 195],
-      [20, 9, 103],
-      [20, 21, 124],
-      [20, 3, 85],
-      [20, 4, 117],
-      [20, 5, 79],
-      [20, 6, 91],
-    ],
-  ],
-  [
-    [[100]],
-    [[1, 3, 5]],
-    [[15]],
-    [
-      [10, 14, 184],
-      [30, 18, 179],
-      [30, 21, 29],
-      [30, 20, 149],
-      [30, 9, 157],
-      [30, 1, 25],
-      [20, 3, 81],
-      [20, 4, 194],
-      [20, 5, 63],
-    ],
-  ],
-  [
-    [[0]],
-    [[2, 3, 4]],
-    [[16]],
-    [
-      [10, 14, 152],
-      [10, 18, 120],
-      [10, 21, 169],
-      [10, 20, 119],
-      [10, 9, 58],
-      [10, 1, 215],
-      [10, 4, 197],
-      [10, 5, 153],
-    ],
-  ],
-];
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // generate traits
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Generate the palette
 // The format is [palette index, palette probability, text trait index]
-let palettes = pickFromProbabilityArray(paletteProbabilties, 0);
-console.log(JSON.stringify(palettes));
+let paletteTraits = generatePaletteTraits(paletteProbabilities);
+console.log(JSON.stringify(paletteTraits));
 
 // Generate objects
-// The format is [object index, material index, axis index, trait name]
-let objects: number[][][] = [];
-for (let i = 0; i < objectProbabilities.length; i++) {
-  let a = objectProbabilities[i][0];
-  if (objectProbabilities[i][0][0][0] > randomInt()) {
-    let a = objectProbabilities[i][3];
-    let axis = objectProbabilities[i][1][randomInt() % objectProbabilities[i][1].length];
-    let material = pickFromProbabilityArray(objectProbabilities[i][3], 0);
-    let b = [objectProbabilities[i][2][0], [material[1]], axis, [material[2]]];
-    let c = objectProbabilities[i][2][0];
-    let mats = [material[1]];
-    objects.push([objectProbabilities[i][2][0], mats, axis, [material[2]]]);
-  }
-}
+let objectTraits = generateObjectTraits(objectProbabilities);
+console.log(JSON.stringify(objectTraits));
 
-console.log(JSON.stringify(objects));
-
-let arr: number[][][][] = [[[[100]], [[1]], [[0]], [[100, 21, 47]]]];
+console.log("nCallsRandomIntFunc:", nCallsRandomIntFunc);

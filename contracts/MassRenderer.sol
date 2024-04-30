@@ -8,6 +8,8 @@ import {Base64} from "solady/src/utils/Base64.sol";
 
 import {IScriptyBuilder, WrappedScriptRequest} from "./lib/scripty/IScriptyBuilder.sol";
 
+import "hardhat/console.sol";
+
 interface IMassContract {
   struct TokenData {
     uint256 transferCount;
@@ -176,6 +178,19 @@ contract MassRenderer is AccessControl {
     }
   }
 
+  function constructJsArrayVar(
+    string memory name,
+    uint256[] memory values
+  ) internal pure returns (string memory) {
+    string memory jsArray = "[";
+    for (uint256 i = 0; i < values.length; i++) {
+      jsArray = string(abi.encodePacked(jsArray, toString(values[i]), i == values.length - 1 ? "" : ","));
+    }
+    jsArray = string(abi.encodePacked(jsArray, "]"));
+
+    return string(abi.encodePacked("let ", name, " = ", jsArray, ";"));
+  }
+
   function getConstantsScript(
     string memory contractAddy,
     string memory contractMetricsSelector,
@@ -185,9 +200,11 @@ contract MassRenderer is AccessControl {
     string memory tokenId,
     string memory seedToken,
     string memory seedIncrement
-  ) internal pure returns (bytes memory) {
+  ) internal view returns (bytes memory) {
+    (string memory palettes, ) = generateAllTraits(1);
     return
       abi.encodePacked(
+        palettes,
         constructJsScalarVar(VariableType.STRING, "J", contractAddy),
         constructJsScalarVar(VariableType.STRING, "K", contractMetricsSelector),
         constructJsScalarVar(VariableType.STRING, "X", tokenMetricsSelector),
@@ -200,17 +217,29 @@ contract MassRenderer is AccessControl {
   }
 
   function tokenURI(uint256 tokenId) external view returns (string memory) {
-    WrappedScriptRequest[] memory requests = new WrappedScriptRequest[](14);
+    WrappedScriptRequest[] memory requests = new WrappedScriptRequest[](15);
+
+    requests[0].wrapType = 0; // <script>[script]</script>
+    requests[0].scriptContent = getConstantsScript(
+      Strings.toHexString(address(massContract)),
+      "gm",
+      "gm2",
+      toString(block.timestamp),
+      toString(5),
+      toString(tokenId),
+      toString(123),
+      toString(456)
+    );
 
     for (uint256 i = 0; i < scriptDefinitions.length; i++) {
-      requests[i].name = scriptDefinitions[i].name;
-      requests[i].wrapType = scriptDefinitions[i].wrapType;
-      requests[i].contractAddress = scriptyStorageAddress;
+      requests[i + 1].name = scriptDefinitions[i].name;
+      requests[i + 1].wrapType = scriptDefinitions[i].wrapType;
+      requests[i + 1].contractAddress = scriptyStorageAddress;
     }
 
     bytes memory base64EncodedHTMLDataURI = IScriptyBuilder(scriptyBuilderAddress).getEncodedHTMLWrapped(
       requests,
-      bufferSize
+      bufferSize + requests[0].scriptContent.length + 17
     );
 
     return
@@ -254,56 +283,93 @@ contract MassRenderer is AccessControl {
   }
 
   function pickFromProbabilityArray(
-    uint256[][] memory arr,
-    Seed calldata randomSeed
-  ) internal returns (uint256[] memory) {
-    uint256 maxIterrations = 100;
-    uint256 probabilityInx = 0;
+    uint256[] memory arr,
+    Seed memory randomSeed
+  ) internal pure returns (uint256[] memory) {
+    if (arr.length == 3) {
+      return arr;
+    }
 
-    uint256[] memory pick = arr[nextInt(randomSeed) % arr.length];
-    for (uint256 i = 0; i < maxIterrations; i++) {
-      uint256[] memory candidate = arr[nextInt(randomSeed) % arr.length];
-      if (candidate[probabilityInx] > nextInt(randomSeed)) {
-        pick = candidate;
+    uint256 pick = nextInt(randomSeed) % (arr.length - 3);
+    uint256 pickIndex = (pick / 3) * 3;
+    for (uint256 i = 0; i < 100; i++) {
+      uint256 r = nextInt(randomSeed);
+      uint256 candidate = r % (arr.length - 3);
+      uint256 candidateIndex = (candidate / 3) * 3;
+      uint256 candidateProbability = arr[candidateIndex];
+      if (candidateProbability > nextInt(randomSeed)) {
+        pickIndex = candidateIndex;
         break;
       }
     }
-    return pick;
+
+    uint256[] memory result = new uint256[](3);
+    result[0] = arr[pickIndex];
+    result[1] = arr[pickIndex + 1];
+    result[2] = arr[pickIndex + 2];
+    return result;
   }
 
-  function generateObjects(Seed calldata randomSeed) internal returns (uint256[][][] memory) {
-    uint256[][4][] memory objects = new uint256[][4][](objectProbabilities.length);
-    uint256 n = 0;
+  function generateObjectTraits(
+    uint8[] memory probabilities,
+    Seed memory randomSeed
+  ) internal pure returns (uint256[] memory) {
+    uint256 currentObjectProbability = 256; // Using 256 as an impossible value for a uint8 to indicate 'unset'
+    uint256 currentObjectIndex = 256; // Same as above
+    uint256[] memory currentObjectMaterialProbabilities = new uint256[](probabilities.length);
 
-    for (uint256 i = 0; i < objectProbabilities.length; i++) {
-      if (objectProbabilities[i][0][0][0] > nextInt(randomSeed)) {
-        uint256[] memory axis = objectProbabilities[i][1][
-          nextInt(randomSeed) % objectProbabilities[i][1].length
-        ];
-        uint256[] memory material = pickFromProbabilityArray(objectProbabilities[i][3], randomSeed);
+    uint256 currentObjectMaterialCount = 0;
+    uint256[] memory objects = new uint[](probabilities.length); // Allocate maximum possible size to avoid push error
+    uint256 objectCount = 0;
 
-        uint256[] memory op = objectProbabilities[i][2][0];
-
-        uint256[] memory mats = new uint256[](1);
-        mats[0] = material[1];
-
-        uint256[] memory mats2 = new uint256[](1);
-        mats2[0] = material[2];
-
-        objects[n] = [op, mats, axis, mats2];
-
-        n++;
+    for (uint256 i = 0; i < probabilities.length; i++) {
+      uint256 v = probabilities[i];
+      if (v == 255) {
+        if (currentObjectProbability > nextInt(randomSeed)) {
+          uint256[] memory material = pickFromProbabilityArray(
+            trimArray(currentObjectMaterialProbabilities, currentObjectMaterialCount),
+            randomSeed
+          );
+          uint256 materialIndex = material[1];
+          uint256 materialTraitName = material[2];
+          objects[objectCount++] = currentObjectIndex;
+          objects[objectCount++] = materialIndex;
+          objects[objectCount++] = materialTraitName;
+        }
+        currentObjectProbability = 256;
+        currentObjectIndex = 256;
+        currentObjectMaterialCount = 0;
+        currentObjectMaterialProbabilities = new uint256[](probabilities.length);
+      } else if (currentObjectProbability == 256) {
+        currentObjectProbability = v;
+      } else if (currentObjectIndex == 256) {
+        currentObjectIndex = v;
+      } else {
+        currentObjectMaterialProbabilities[currentObjectMaterialCount++] = v;
       }
     }
+
+    return trimArray(objects, objectCount);
   }
 
-  function generateAllTraits(uint256 tokenId) public view returns (Trait[] memory) {
-    (uint256 tokenSeed, uint256 tokenSeedIncrement) = getSeedVariables(tokenId);
+  function trimArray(uint256[] memory arr, uint256 toLength) internal pure returns (uint256[] memory) {
+    uint256[] memory trimmed = new uint256[](toLength);
+    for (uint256 i = 0; i < toLength; i++) {
+      trimmed[i] = arr[i];
+    }
+    return trimmed;
+  }
 
-    Seed memory seed = Seed({current: tokenSeed, incrementor: tokenSeedIncrement});
+  function generateAllTraits(uint256 tokenId) public view returns (string memory, string memory) {
+    // (uint256 tokenSeed, uint256 tokenSeedIncrement) = getSeedVariables(tokenId);
+    // Seed memory seed = Seed({current: tokenSeed, incrementor: tokenSeedIncrement});
 
-    uint256[] memory palettes = pickFromProbabilityArray(paletteProbabilties);
-    uint256[][] memory objects = generateObjects();
+    Seed memory seed = Seed({current: 14566587, incrementor: 586931});
+
+    uint256[] memory palettes = pickFromProbabilityArray(paletteProbabilties, seed);
+    uint256[] memory objects = generateObjectTraits(objectProbabilities, seed);
+
+    return (constructJsArrayVar("palettes", palettes), constructJsArrayVar("objects", objects));
   }
 
   function stringEq(string memory a, string memory b) internal pure returns (bool result) {
@@ -352,231 +418,534 @@ contract MassRenderer is AccessControl {
     return string(buffer);
   }
 
-  uint256[] test2 = [100, 1, 0, 100, 21, 47];
-
-  uint256[][][] private test = [[[100]], [[1]], [[0]], [[100, 21, 47]]];
-
-  function tt() internal view returns (uint256[][][] memory) {
-    return [[[100]], [[1]], [[0]], [[100, 21, 47]]];
-  }
-
-  uint256[][][][] internal objectProbabilities = [
-    [[[100]], [[1]], [[0]], [[100, 21, 47]]],
-    [
-      [[50]],
-      [[2]],
-      [[1]],
-      [
-        [10, 14, 125],
-        [10, 18, 116],
-        [10, 20, 80],
-        [10, 3, 97],
-        [10, 4, 83],
-        [10, 5, 99],
-        [10, 6, 49],
-        [10, 7, 177],
-        [10, 8, 4],
-        [10, 9, 185]
-      ]
-    ],
-    [
-      [[30]],
-      [[3]],
-      [[2]],
-      [
-        [10, 0, 196],
-        [10, 14, 73],
-        [10, 18, 126],
-        [10, 20, 68],
-        [10, 21, 187],
-        [10, 2, 154],
-        [10, 9, 131],
-        [10, 3, 204],
-        [10, 4, 130],
-        [10, 5, 181],
-        [10, 6, 46]
-      ]
-    ],
-    [
-      [[30]],
-      [[1]],
-      [[3]],
-      [
-        [10, 13, 74],
-        [10, 19, 70],
-        [10, 10, 23],
-        [10, 11, 71],
-        [16, 12, 32],
-        [16, 15, 12],
-        [10, 16, 137],
-        [10, 17, 36]
-      ]
-    ],
-    [[[50]], [[1]], [[4]], [[100, 0, 43]]],
-    [
-      [[20]],
-      [[5]],
-      [[5]],
-      [[10, 14, 145], [10, 0, 34], [10, 9, 168], [10, 3, 211], [10, 4, 173], [10, 5, 132]]
-    ],
-    [[[100]], [[2]], [[6]], [[10, 0, 26], [10, 14, 159], [10, 21, 150], [10, 4, 193]]],
-    [[[50]], [[3]], [[7]], [[10, 0, 77], [10, 9, 9], [10, 3, 141], [10, 4, 100], [10, 5, 13]]],
-    [
-      [[20]],
-      [[4]],
-      [[8]],
-      [
-        [10, 0, 59],
-        [10, 14, 201],
-        [10, 18, 156],
-        [10, 20, 118],
-        [10, 21, 136],
-        [10, 1, 0],
-        [10, 9, 115],
-        [10, 3, 7]
-      ]
-    ],
-    [[[100]], [[5]], [[9]], [[10, 14, 53], [10, 0, 188], [10, 9, 166], [10, 4, 35]]],
-    [
-      [[30]],
-      [[3]],
-      [[10]],
-      [
-        [10, 0, 20],
-        [10, 14, 144],
-        [10, 18, 107],
-        [10, 20, 207],
-        [10, 21, 105],
-        [10, 1, 214],
-        [10, 9, 217],
-        [10, 3, 155],
-        [10, 4, 89],
-        [10, 5, 198]
-      ]
-    ],
-    [
-      [[50]],
-      [[2]],
-      [[11]],
-      [[10, 0, 87], [10, 14, 42], [10, 18, 24], [10, 21, 205], [10, 3, 167], [10, 4, 210], [10, 5, 206]]
-    ],
-    [
-      [[0]],
-      [[1, 2, 5]],
-      [[12]],
-      [
-        [10, 14, 161],
-        [10, 18, 190],
-        [30, 20, 98],
-        [30, 21, 216],
-        [30, 1, 64],
-        [30, 9, 1],
-        [20, 3, 123],
-        [20, 4, 127],
-        [20, 5, 183]
-      ]
-    ],
-    [
-      [[0]],
-      [[2, 3, 4]],
-      [[13]],
-      [
-        [10, 14, 129],
-        [10, 18, 62],
-        [20, 20, 140],
-        [20, 9, 94],
-        [20, 21, 142],
-        [20, 3, 90],
-        [20, 4, 209],
-        [20, 5, 186],
-        [20, 6, 213]
-      ]
-    ],
-    [
-      [[0]],
-      [[1, 4, 5]],
-      [[14]],
-      [
-        [10, 14, 41],
-        [10, 18, 191],
-        [20, 20, 195],
-        [20, 9, 103],
-        [20, 21, 124],
-        [20, 3, 85],
-        [20, 4, 117],
-        [20, 5, 79],
-        [20, 6, 91]
-      ]
-    ],
-    [
-      [[100]],
-      [[1, 3, 5]],
-      [[15]],
-      [
-        [10, 14, 184],
-        [30, 18, 179],
-        [30, 21, 29],
-        [30, 20, 149],
-        [30, 9, 157],
-        [30, 1, 25],
-        [20, 3, 81],
-        [20, 4, 194],
-        [20, 5, 63]
-      ]
-    ],
-    [
-      [[0]],
-      [[2, 3, 4]],
-      [[16]],
-      [
-        [10, 14, 152],
-        [10, 18, 120],
-        [10, 21, 169],
-        [10, 20, 119],
-        [10, 9, 58],
-        [10, 1, 215],
-        [10, 4, 197],
-        [10, 5, 153]
-      ]
-    ]
+  uint8[] internal objectProbabilities = [
+    100,
+    0,
+    100,
+    21,
+    47,
+    255,
+    100,
+    1,
+    100,
+    21,
+    125,
+    255,
+    100,
+    2,
+    100,
+    21,
+    116,
+    255,
+    50,
+    3,
+    10,
+    14,
+    80,
+    10,
+    18,
+    97,
+    10,
+    20,
+    83,
+    10,
+    3,
+    99,
+    10,
+    4,
+    49,
+    10,
+    5,
+    177,
+    10,
+    6,
+    4,
+    10,
+    7,
+    185,
+    10,
+    8,
+    196,
+    10,
+    9,
+    73,
+    255,
+    30,
+    4,
+    10,
+    0,
+    126,
+    10,
+    14,
+    68,
+    10,
+    18,
+    187,
+    10,
+    20,
+    154,
+    10,
+    21,
+    131,
+    10,
+    2,
+    204,
+    10,
+    9,
+    130,
+    10,
+    3,
+    181,
+    10,
+    4,
+    46,
+    10,
+    5,
+    74,
+    10,
+    6,
+    70,
+    255,
+    30,
+    5,
+    10,
+    13,
+    23,
+    10,
+    19,
+    71,
+    10,
+    10,
+    32,
+    10,
+    11,
+    12,
+    16,
+    12,
+    137,
+    16,
+    15,
+    36,
+    10,
+    16,
+    43,
+    10,
+    17,
+    145,
+    255,
+    50,
+    6,
+    100,
+    0,
+    34,
+    255,
+    20,
+    7,
+    10,
+    14,
+    168,
+    10,
+    0,
+    211,
+    10,
+    9,
+    173,
+    10,
+    3,
+    132,
+    10,
+    4,
+    26,
+    10,
+    5,
+    159,
+    255,
+    100,
+    8,
+    10,
+    0,
+    150,
+    10,
+    14,
+    193,
+    10,
+    21,
+    77,
+    10,
+    4,
+    9,
+    255,
+    50,
+    9,
+    10,
+    0,
+    141,
+    10,
+    9,
+    100,
+    10,
+    3,
+    13,
+    10,
+    4,
+    59,
+    10,
+    5,
+    201,
+    255,
+    20,
+    10,
+    10,
+    0,
+    156,
+    10,
+    14,
+    118,
+    10,
+    18,
+    136,
+    10,
+    20,
+    0,
+    10,
+    21,
+    115,
+    10,
+    1,
+    7,
+    10,
+    9,
+    53,
+    10,
+    3,
+    188,
+    255,
+    100,
+    11,
+    10,
+    14,
+    166,
+    10,
+    0,
+    35,
+    10,
+    9,
+    20,
+    10,
+    4,
+    144,
+    255,
+    30,
+    12,
+    10,
+    0,
+    107,
+    10,
+    14,
+    207,
+    10,
+    18,
+    105,
+    10,
+    20,
+    214,
+    10,
+    21,
+    217,
+    10,
+    1,
+    155,
+    10,
+    9,
+    89,
+    10,
+    3,
+    198,
+    10,
+    4,
+    87,
+    10,
+    5,
+    42,
+    255,
+    50,
+    13,
+    10,
+    0,
+    24,
+    10,
+    14,
+    205,
+    10,
+    18,
+    167,
+    10,
+    21,
+    210,
+    10,
+    3,
+    206,
+    10,
+    4,
+    161,
+    10,
+    5,
+    190,
+    255,
+    0,
+    14,
+    10,
+    14,
+    98,
+    10,
+    18,
+    216,
+    30,
+    20,
+    64,
+    30,
+    21,
+    1,
+    30,
+    1,
+    123,
+    30,
+    9,
+    127,
+    20,
+    3,
+    183,
+    20,
+    4,
+    129,
+    20,
+    5,
+    62,
+    255,
+    0,
+    15,
+    10,
+    14,
+    140,
+    10,
+    18,
+    94,
+    20,
+    20,
+    142,
+    20,
+    9,
+    90,
+    20,
+    21,
+    209,
+    20,
+    3,
+    186,
+    20,
+    4,
+    213,
+    20,
+    5,
+    41,
+    20,
+    6,
+    191,
+    255,
+    0,
+    16,
+    10,
+    14,
+    195,
+    10,
+    18,
+    103,
+    20,
+    20,
+    124,
+    20,
+    9,
+    85,
+    20,
+    21,
+    117,
+    20,
+    3,
+    79,
+    20,
+    4,
+    91,
+    20,
+    5,
+    184,
+    20,
+    6,
+    179,
+    255,
+    100,
+    17,
+    10,
+    14,
+    29,
+    30,
+    18,
+    149,
+    30,
+    21,
+    157,
+    30,
+    20,
+    25,
+    30,
+    9,
+    81,
+    30,
+    1,
+    194,
+    20,
+    3,
+    63,
+    20,
+    4,
+    152,
+    20,
+    5,
+    120,
+    255,
+    0,
+    18,
+    10,
+    14,
+    169,
+    10,
+    18,
+    119,
+    10,
+    21,
+    58,
+    10,
+    20,
+    215,
+    10,
+    9,
+    197,
+    10,
+    1,
+    153,
+    10,
+    4,
+    16,
+    10,
+    5,
+    114,
+    255
   ];
-
-  uint256[][] internal paletteProbabilties = [
-    [0, 10, 27],
-    [1, 5, 180],
-    [2, 5, 172],
-    [3, 10, 208],
-    [4, 10, 164],
-    [5, 10, 40],
-    [6, 10, 38],
-    [7, 5, 139],
-    [8, 10, 175],
-    [9, 5, 31],
-    [10, 5, 147],
-    [11, 10, 171],
-    [12, 5, 17],
-    [13, 10, 69],
-    [14, 10, 50],
-    [15, 10, 11],
-    [16, 10, 33],
-    [17, 10, 128],
-    [18, 5, 88],
-    [19, 1, 60],
-    [20, 10, 8],
-    [21, 10, 6],
-    [22, 5, 37],
-    [23, 1, 39],
-    [24, 1, 44],
-    [25, 10, 56],
-    [26, 10, 113],
-    [27, 1, 151],
-    [28, 10, 200],
-    [29, 10, 101],
-    [30, 5, 21],
-    [31, 1, 93],
-    [32, 10, 176],
-    [33, 10, 19],
-    [34, 1, 146]
+  uint256[] internal paletteProbabilties = [
+    0,
+    10,
+    27,
+    1,
+    5,
+    180,
+    2,
+    5,
+    172,
+    3,
+    10,
+    208,
+    4,
+    10,
+    164,
+    5,
+    10,
+    40,
+    6,
+    10,
+    38,
+    7,
+    5,
+    139,
+    8,
+    10,
+    175,
+    9,
+    5,
+    31,
+    10,
+    5,
+    147,
+    11,
+    10,
+    171,
+    12,
+    5,
+    17,
+    13,
+    10,
+    69,
+    14,
+    10,
+    50,
+    15,
+    10,
+    11,
+    16,
+    10,
+    33,
+    17,
+    10,
+    128,
+    18,
+    5,
+    88,
+    19,
+    1,
+    60,
+    20,
+    10,
+    8,
+    21,
+    10,
+    6,
+    22,
+    5,
+    37,
+    23,
+    1,
+    39,
+    24,
+    1,
+    44,
+    25,
+    10,
+    56,
+    26,
+    10,
+    113,
+    27,
+    1,
+    151,
+    28,
+    10,
+    200,
+    29,
+    10,
+    101,
+    30,
+    5,
+    21,
+    31,
+    1,
+    93,
+    32,
+    10,
+    176,
+    33,
+    10,
+    19,
+    34,
+    1,
+    146
   ];
 
   string[] internal text_traits = [
