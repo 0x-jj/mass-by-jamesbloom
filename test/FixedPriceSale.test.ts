@@ -19,7 +19,7 @@ const MAX_SUPPLY = 300;
 
 const zeroAddress = ethers.constants.AddressZero;
 
-describe.only("FixedPriceSale", function () {
+describe("FixedPriceSale", function () {
   let nft: Mass;
   let friendlyMinterStorage: FriendlyMinterStorage;
   let sale: FixedPriceSale;
