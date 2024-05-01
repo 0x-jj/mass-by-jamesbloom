@@ -27,7 +27,7 @@ export const emptyAddress = "0x0000000000000000000000000000000000000000";
 export const parseBase64DataURI = (uri: string) => {
   const data = uri.split("base64,")[1];
   const buff = Buffer.from(data, "base64");
-  return buff.toString("ascii");
+  return buff.toString("utf8");
 };
 
 export const parseEscapedDataURI = (uri: string) => {

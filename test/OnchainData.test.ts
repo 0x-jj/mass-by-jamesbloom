@@ -1,13 +1,13 @@
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { Gold, WETH } from "../typechain-types";
+import { Mass, WETH } from "../typechain-types";
 import { deployContracts } from "./utils";
 
 const toWei = ethers.utils.parseEther;
 
-describe("GOLD data", async function () {
-  let contract: Gold;
+describe("NFT data", async function () {
+  let contract: Mass;
   let deployer: SignerWithAddress;
   let wethContract: WETH;
 

@@ -19,8 +19,6 @@ error AlreadyClaimed();
 
 interface IMassRenderer {
   function tokenURI(uint256 tokenId) external view returns (string memory);
-
-  function numberOfBonusPlates(uint256 tokenId) external view returns (uint256);
 }
 
 /// @title Mass
@@ -218,14 +216,13 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
 
   function getTokenMetrics(
     uint256 tokenId
-  ) external view returns (uint256, uint256[HISTORY_LENGTH] memory, uint256, bytes32, uint256, uint256) {
+  ) external view returns (uint256, uint256[HISTORY_LENGTH] memory, uint256, bytes32, uint256) {
     return (
       tokenData[tokenId].transferCount,
       tokenData[tokenId].latestTransferTimestamps,
       tokenData[tokenId].mintTimestamp,
       tokenData[tokenId].seed,
-      balanceOf(ownerOf(tokenId)),
-      renderer.numberOfBonusPlates(tokenId)
+      balanceOf(ownerOf(tokenId))
     );
   }
 

@@ -176,16 +176,23 @@ async function main() {
 
   const tokenURI = await nftContract.tokenURI(0);
   console.log("Got token URI");
+
+  utilities.writeFile(path.join(__dirname, "output", "tokenURI.txt"), tokenURI);
+
   const tokenURIDecoded = utilities.parseBase64DataURI(tokenURI);
   console.log("Decoded token URI");
+
+  utilities.writeFile(path.join(__dirname, "output", "metadata.json"), tokenURIDecoded);
+
   const tokenURIJSONDecoded = JSON.parse(tokenURIDecoded);
   console.log("Parsed decoded token URI");
+
+  utilities.writeFile(path.join(__dirname, "output", "metadata.json"), tokenURIDecoded);
+
   const animationURL = utilities.parseBase64DataURI(tokenURIJSONDecoded.animation_url);
   console.log("Parsed animation url");
 
-  utilities.writeFile(path.join(__dirname, "output", "tokenURI.txt"), tokenURI);
   utilities.writeFile(path.join(__dirname, "output", "output.html"), animationURL);
-  utilities.writeFile(path.join(__dirname, "output", "metadata.json"), tokenURIDecoded);
 
   // Verify contracts if network is goerli
   if (network.name == "goerli") {
