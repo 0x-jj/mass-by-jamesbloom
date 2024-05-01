@@ -48,12 +48,28 @@ contract MassRenderer is AccessControl {
 
   ScriptDefinition[] public scriptDefinitions;
 
+  struct ScriptConstantVarNames {
+    string objects;
+    string palettes;
+    string contractAddy;
+    string contractMetricsSelector;
+    string tokenMetricsSelector;
+    string baseTimestamp;
+    string royaltyPercent;
+    string tokenId;
+    string seedToken;
+    string seedIncrement;
+  }
+
+  ScriptConstantVarNames public scriptConstantVarNames;
+
   constructor(
     address[] memory admins_,
     address _scriptyBuilderAddress,
     address _scriptyStorageAddress,
     uint256 bufferSize_,
-    string memory baseImageURI_
+    string memory baseImageURI_,
+    string[] memory scriptConstantLabels
   ) {
     _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
     for (uint256 i = 0; i < admins_.length; i++) {
@@ -79,6 +95,8 @@ contract MassRenderer is AccessControl {
     scriptDefinitions.push(ScriptDefinition("jb_mass_textures", 2));
     scriptDefinitions.push(ScriptDefinition("gunzipScripts-0.0.1", 0));
     scriptDefinitions.push(ScriptDefinition("jb_mass_main", 0));
+
+    setScriptConstantVarNames(scriptConstantLabels);
   }
 
   function setMassContract(address _massContract) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -186,6 +204,22 @@ contract MassRenderer is AccessControl {
     uint256 seedIncrement;
   }
 
+  function setScriptConstantVarNames(string[] memory varNames) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    require(varNames.length == 10, "Invalid varNames length");
+    scriptConstantVarNames = ScriptConstantVarNames({
+      objects: varNames[0],
+      palettes: varNames[1],
+      contractAddy: varNames[2],
+      contractMetricsSelector: varNames[3],
+      tokenMetricsSelector: varNames[4],
+      baseTimestamp: varNames[5],
+      royaltyPercent: varNames[6],
+      tokenId: varNames[7],
+      seedToken: varNames[8],
+      seedIncrement: varNames[9]
+    });
+  }
+
   function getRawTraitsArrays(uint256 seedToken, uint256 seedIncrement) public view returns (bytes memory) {
     Seed memory seed = Seed({current: seedToken, incrementor: seedIncrement});
 
@@ -193,21 +227,52 @@ contract MassRenderer is AccessControl {
     uint256[] memory objects = generateObjectTraits(objectProbabilities, seed);
 
     return
-      abi.encodePacked(constructJsArrayVar("palettes", palettes), constructJsArrayVar("objects", objects));
+      abi.encodePacked(
+        constructJsArrayVar(scriptConstantVarNames.palettes, palettes),
+        constructJsArrayVar(scriptConstantVarNames.objects, objects)
+      );
   }
 
   function getConstantsScript(ScriptConstants memory constants) internal view returns (bytes memory) {
     return
       abi.encodePacked(
         getRawTraitsArrays(constants.seedToken, constants.seedIncrement),
-        constructJsScalarVar(VariableType.STRING, "J", constants.contractAddy),
-        constructJsScalarVar(VariableType.STRING, "K", constants.contractMetricsSelector),
-        constructJsScalarVar(VariableType.STRING, "X", constants.tokenMetricsSelector),
-        constructJsScalarVar(VariableType.NUMBER, "$", constants.baseTimestamp),
-        constructJsScalarVar(VariableType.NUMBER, "U", constants.royaltyPercent),
-        constructJsScalarVar(VariableType.NUMBER, "H", constants.tokenId),
-        constructJsScalarVar(VariableType.NUMBER, "y", toString(constants.seedToken)),
-        constructJsScalarVar(VariableType.NUMBER, "h", toString(constants.seedIncrement))
+        constructJsScalarVar(
+          VariableType.STRING,
+          scriptConstantVarNames.contractAddy,
+          constants.contractAddy
+        ),
+        constructJsScalarVar(
+          VariableType.STRING,
+          scriptConstantVarNames.contractMetricsSelector,
+          constants.contractMetricsSelector
+        ),
+        constructJsScalarVar(
+          VariableType.STRING,
+          scriptConstantVarNames.tokenMetricsSelector,
+          constants.tokenMetricsSelector
+        ),
+        constructJsScalarVar(
+          VariableType.NUMBER,
+          scriptConstantVarNames.baseTimestamp,
+          constants.baseTimestamp
+        ),
+        constructJsScalarVar(
+          VariableType.NUMBER,
+          scriptConstantVarNames.royaltyPercent,
+          constants.royaltyPercent
+        ),
+        constructJsScalarVar(VariableType.NUMBER, scriptConstantVarNames.tokenId, constants.tokenId),
+        constructJsScalarVar(
+          VariableType.NUMBER,
+          scriptConstantVarNames.seedToken,
+          toString(constants.seedToken)
+        ),
+        constructJsScalarVar(
+          VariableType.NUMBER,
+          scriptConstantVarNames.seedIncrement,
+          toString(constants.seedIncrement)
+        )
       );
   }
 

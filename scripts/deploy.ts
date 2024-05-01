@@ -123,7 +123,8 @@ async function main() {
     scriptyBuilderContract.address,
     scriptyStorageContract.address,
     rawBufferSize,
-    "https://arweave.net/mass/"
+    "https://arweave.net/mass/",
+    ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
   );
   await rendererContract.deployed();
   console.log("Renderer Contract is deployed", rendererContract.address);

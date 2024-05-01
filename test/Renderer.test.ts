@@ -26,7 +26,8 @@ describe.only("Renderer", async function () {
       scriptyBuilderContract.address,
       scriptyStorageContract.address,
       210000,
-      "https://arweave.net/gold/"
+      "https://arweave.net/gold/",
+      ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
     );
     await rendererContract.deployed();
     contract = rendererContract;
