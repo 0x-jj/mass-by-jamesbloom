@@ -39,6 +39,7 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
     uint256[HISTORY_LENGTH] latestTransferTimestamps;
     uint256 mintTimestamp;
     bytes32 seed;
+    uint256 resetTimestamp;
   }
 
   /// @dev Mapping from token ID to token data

@@ -83,19 +83,12 @@ async function main() {
 
   const scripts: { name: string; path: string; compress: boolean }[] = [
     { name: "jb_mass_base", path: "scripts/massBase.js", compress: false },
-    { name: "jb_mass_goldWallets", path: "scripts/goldWallets.js", compress: false },
-    { name: "jb_mass_dataTools", path: "scripts/dataTools.js", compress: false },
     { name: "three-v0.147.0.min.js.gz", path: "scripts/three-v0.147.0.min.js.gz.txt", compress: false },
-    { name: "jb_mass_parameters", path: "scripts/parameters.js", compress: false },
-    { name: "jb_mass_mersenneTwister", path: "scripts/mersenneTwister.js", compress: false },
-    { name: "jb_mass_util", path: "scripts/util.js", compress: false },
-    { name: "jb_mass_perlin", path: "scripts/perlin.js", compress: false },
-    { name: "jb_mass_ImprovedNoise", path: "scripts/ImprovedNoise.js", compress: false },
-    { name: "jb_mass_OBJLoader", path: "scripts/OBJLoader.js", compress: false },
+    { name: "jb_mass_parameters", path: "scripts/parameters-min.js", compress: false },
     { name: "jb_mass_objects", path: "scripts/objects.js", compress: true },
     { name: "jb_mass_textures", path: "scripts/textures.js", compress: true },
     { name: "gunzipScripts-0.0.1", path: "scripts/gunzipScripts-0.0.1.js", compress: false },
-    { name: "jb_mass_main", path: "scripts/main.js", compress: false },
+    { name: "jb_mass_main", path: "scripts/main-min.js", compress: false },
   ];
 
   for (let i = 0; i < scripts.length; i++) {
@@ -108,8 +101,7 @@ async function main() {
     [dev.address, artist.address, dao.address],
     scriptyBuilderContract.address,
     scriptyStorageContract.address,
-    "https://arweave.net/mass/",
-    ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
+    "https://arweave.net/mass/"
   );
   await rendererContract.deployed();
   console.log("Renderer Contract is deployed", rendererContract.address);

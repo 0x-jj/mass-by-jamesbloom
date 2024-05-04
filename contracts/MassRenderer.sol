@@ -9,7 +9,7 @@ import {Base64} from "solady/src/utils/Base64.sol";
 import {IScriptyBuilderV2, HTMLRequest, HTMLTagType, HTMLTag} from "./lib/scripty/interfaces/IScriptyBuilderV2.sol";
 
 interface IMassContract {
-  function tokenData(uint256 tokenId) external view returns (uint256, uint256, bytes32);
+  function tokenData(uint256 tokenId) external view returns (uint256, uint256, bytes32, uint256);
 
   function getSelectors() external view returns (string memory, string memory);
 
@@ -58,7 +58,7 @@ contract MassRenderer is AccessControl {
     string royaltyPercent;
     string tokenId;
     string seedToken;
-    string seedIncrement;
+    string resetTimestamp;
   }
 
   ScriptConstantVarNames public scriptConstantVarNames;
@@ -67,8 +67,7 @@ contract MassRenderer is AccessControl {
     address[] memory admins_,
     address _scriptyBuilderAddress,
     address _scriptyStorageAddress,
-    string memory baseImageURI_,
-    string[] memory scriptConstantLabels
+    string memory baseImageURI_
   ) {
     _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
     for (uint256 i = 0; i < admins_.length; i++) {
@@ -84,18 +83,23 @@ contract MassRenderer is AccessControl {
     scriptDefinitions.push(ScriptDefinition("jb_mass_textures", HTMLTagType.scriptGZIPBase64DataURI));
     scriptDefinitions.push(ScriptDefinition("gunzipScripts-0.0.1", HTMLTagType.script));
     scriptDefinitions.push(ScriptDefinition("jb_mass_base", HTMLTagType.script));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_goldWallets", HTMLTagType.script));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_dataTools", HTMLTagType.script));
     scriptDefinitions.push(ScriptDefinition("jb_mass_parameters", HTMLTagType.script));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_mersenneTwister", HTMLTagType.script));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_util", HTMLTagType.script));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_perlin", HTMLTagType.script));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_ImprovedNoise", HTMLTagType.script));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_OBJLoader", HTMLTagType.script));
-
     scriptDefinitions.push(ScriptDefinition("jb_mass_main", HTMLTagType.script));
 
-    setScriptConstantVarNames(scriptConstantLabels);
+    setScriptConstantVarNames(
+      ScriptConstantVarNames({
+        objects: "traitsObjects",
+        palettes: "traitsPalette",
+        contractAddy: "contractAddress",
+        contractMetricsSelector: "contractMetricsSelector",
+        tokenMetricsSelector: "jsonRpcCallDataContract",
+        baseTimestamp: "contractMintTimestamp",
+        royaltyPercent: "royaltyPercent",
+        tokenId: "tokenId",
+        seedToken: "tokenHash",
+        resetTimestamp: "resetTimestamp"
+      })
+    );
   }
 
   function setMassContract(address _massContract) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -124,11 +128,11 @@ contract MassRenderer is AccessControl {
     bufferSize = newSize;
   }
 
-  function getSeedVariables(uint256 tokenId) internal view returns (uint256, uint256) {
-    (, , bytes32 seed) = massContract.tokenData(tokenId);
+  function getSeedVariables(uint256 tokenId) internal view returns (uint256, uint256, uint256) {
+    (, , bytes32 seed, uint256 resetTimestamp) = massContract.tokenData(tokenId);
     uint256 seedToken = uint256(seed) % (10 ** 6);
     uint256 tokenSeedIncrement = 999 + tokenId;
-    return (seedToken, tokenSeedIncrement);
+    return (seedToken, tokenSeedIncrement, resetTimestamp);
   }
 
   function getMetadataObject(
@@ -201,22 +205,13 @@ contract MassRenderer is AccessControl {
     string tokenId;
     uint256 seedToken;
     uint256 seedIncrement;
+    uint256 resetTimestamp;
   }
 
-  function setScriptConstantVarNames(string[] memory varNames) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    require(varNames.length == 10, "Invalid varNames length");
-    scriptConstantVarNames = ScriptConstantVarNames({
-      objects: varNames[0],
-      palettes: varNames[1],
-      contractAddy: varNames[2],
-      contractMetricsSelector: varNames[3],
-      tokenMetricsSelector: varNames[4],
-      baseTimestamp: varNames[5],
-      royaltyPercent: varNames[6],
-      tokenId: varNames[7],
-      seedToken: varNames[8],
-      seedIncrement: varNames[9]
-    });
+  function setScriptConstantVarNames(
+    ScriptConstantVarNames memory varNames
+  ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    scriptConstantVarNames = varNames;
   }
 
   function getRawTraitsArrays(uint256 seedToken, uint256 seedIncrement) public view returns (bytes memory) {
@@ -269,8 +264,8 @@ contract MassRenderer is AccessControl {
         ),
         constructJsScalarVar(
           VariableType.NUMBER,
-          scriptConstantVarNames.seedIncrement,
-          toString(constants.seedIncrement)
+          scriptConstantVarNames.resetTimestamp,
+          toString(constants.resetTimestamp)
         )
       );
   }
@@ -280,7 +275,7 @@ contract MassRenderer is AccessControl {
 
     HTMLTag[] memory requests = new HTMLTag[](15);
 
-    (uint256 tokenSeed, uint256 tokenSeedIncrement) = getSeedVariables(tokenId);
+    (uint256 tokenSeed, uint256 tokenSeedIncrement, uint256 resetTimestamp) = getSeedVariables(tokenId);
     (string memory contractMetricsSelector, string memory tokenMetricsSelector) = massContract.getSelectors();
     uint256 baseTimestamp = massContract.baseTimestamp();
 
@@ -292,7 +287,8 @@ contract MassRenderer is AccessControl {
       royaltyPercent: toString(royaltyPct),
       tokenId: toString(tokenId),
       seedToken: tokenSeed,
-      seedIncrement: tokenSeedIncrement
+      seedIncrement: tokenSeedIncrement,
+      resetTimestamp: resetTimestamp
     });
 
     requests[0].tagType = HTMLTagType.script;
@@ -430,7 +426,7 @@ contract MassRenderer is AccessControl {
   }
 
   function generateAllTraits(uint256 tokenId) public view returns (Trait[] memory) {
-    (uint256 tokenSeed, uint256 tokenSeedIncrement) = getSeedVariables(tokenId);
+    (uint256 tokenSeed, uint256 tokenSeedIncrement, ) = getSeedVariables(tokenId);
     Seed memory seed = Seed({current: tokenSeed, incrementor: tokenSeedIncrement});
 
     uint256[] memory palettes = pickFromProbabilityArray(paletteProbabilties, seed);
