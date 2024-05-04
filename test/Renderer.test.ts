@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { Gold, Mass, MassRenderer, WETH } from "../typechain-types";
+import { Mass, MassRenderer, WETH } from "../typechain-types";
 import { deployContracts } from "./utils";
 import { takeSnapshot, revertToSnapshot } from "./helpers/snapshot";
 import { deployOrGetContracts } from "../scripts/utils";
@@ -19,13 +19,12 @@ describe.only("Renderer", async function () {
     const [dev, artist, dao] = await ethers.getSigners();
     const renderer = await ethers.getContractFactory("MassRenderer");
     const { scriptyStorageContract, scriptyBuilderContract, wethContract } = await deployOrGetContracts(
-      network.name
+      network
     );
     const rendererContract = await renderer.deploy(
       [dev.address, artist.address, dao.address],
       scriptyBuilderContract.address,
       scriptyStorageContract.address,
-      210000,
       "https://arweave.net/gold/",
       ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
     );

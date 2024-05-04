@@ -9,31 +9,28 @@ pragma solidity ^0.8.17;
 // ██████╔╝╚█████╔╝██║░░██║██║██║░░░░░░░░██║░░░░░░██║░░░ //
 // ╚═════╝░░╚════╝░╚═╝░░╚═╝╚═╝╚═╝░░░░░░░░╚═╝░░░░░░╚═╝░░░ //
 ///////////////////////////////////////////////////////////
+//░░░░░░░░░░░░░░░░░░░    REQUESTS    ░░░░░░░░░░░░░░░░░░░░//
+///////////////////////////////////////////////////////////
 
-import {IFileStore} from "./../../dependencies/ethfs/IFileStore.sol";
-import {IContractScript} from "./../../IContractScript.sol";
+struct HTMLRequest {
+    HTMLTag[] headTags;
+    HTMLTag[] bodyTags;
+}
 
-contract ETHFSFileStorage is IContractScript {
-    IFileStore public immutable fileStore;
+enum HTMLTagType {
+    useTagOpenAndClose,
+    script,
+    scriptBase64DataURI,
+    scriptGZIPBase64DataURI,
+    scriptPNGBase64DataURI
+}
 
-    constructor(address _fileStoreAddress) {
-        fileStore = IFileStore(_fileStoreAddress);
-    }
-
-    // =============================================================
-    //                            GETTERS
-    // =============================================================
-
-    /**
-     * @notice Get the full script from ethfs's FileStore contract
-     * @param name - Name given to the script. Eg: threejs.min.js_r148
-     * @param data - Arbitrary data. Not used by this contract.
-     * @return script - Full script from merged chunks
-     */
-    function getScript(
-        string calldata name,
-        bytes memory data
-    ) external view returns (bytes memory script) {
-        return bytes(fileStore.getFile(name).read());
-    }
+struct HTMLTag {
+    string name;
+    address contractAddress;
+    bytes contractData;
+    HTMLTagType tagType;
+    bytes tagOpen;
+    bytes tagClose;
+    bytes tagContent;
 }

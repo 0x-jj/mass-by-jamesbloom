@@ -7063,10 +7063,10 @@ sc-istanbul@^0.4.5:
     which "^1.1.1"
     wordwrap "^1.0.0"
 
-scripty.sol@^1.0.2:
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/scripty.sol/-/scripty.sol-1.0.2.tgz#e2d07b331030c39ec3587d96a57767ad24b8c0c0"
-  integrity sha512-w4zSJTzjhjmygYVMWF9zC3xUmnzlXTlEr1dR3yr8QvkEzQi4t+PWzA9pOx3gAcgl5Pn2dlmIotzzNkyM0qw4cA==
+scripty.sol@^2.1.1:
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/scripty.sol/-/scripty.sol-2.1.1.tgz#965ca2b910b2631c48347e58dc82ee144b6f270f"
+  integrity sha512-JZFo+fAxn1vY37kHhb6PwYviZiW2ofA/FIlHfnhJs+iRWV/7qj17uEhoxBBae9+P/k+KS4LrWrfSPhRBG2GBPw==
 
 scrypt-js@2.0.4:
   version "2.0.4"

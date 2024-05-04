@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
 import zlib from "zlib";
 import fs from "fs";
+import { Network } from "hardhat/types";
 
 export const stringToBytes = (str: string) => {
   return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(str));
@@ -77,24 +78,35 @@ const addresses = {
   },
 };
 
+const SAFE_SINGLETON_FACTORY = "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7";
+const SAFE_SINGLETON_FACTORY_BYTECODE =
+  "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3";
+
 export const addressFor = (networkName: string, name: string) => {
   // @ts-ignore
   return addresses[networkName][name];
 };
 
-export async function deployOrGetContracts(networkName: string) {
+export async function deployOrGetContracts(network: Network) {
+  const networkName = network.name;
   if (networkName == "hardhat" || networkName == "localhost") {
-    const contentStoreContract = await (await ethers.getContractFactory("ContentStore")).deploy();
-    await contentStoreContract.deployed();
-    console.log("ContentStore deployed at", contentStoreContract.address);
+    console.log("Deploying contracts on", networkName);
+    await network.provider.send("hardhat_setCode", [SAFE_SINGLETON_FACTORY, SAFE_SINGLETON_FACTORY_BYTECODE]);
+    console.log("SafeSingletonFactory deployed at", SAFE_SINGLETON_FACTORY);
+
+    const ethfsFileStoreContract = await (
+      await ethers.getContractFactory("FileStore")
+    ).deploy(SAFE_SINGLETON_FACTORY);
+    await ethfsFileStoreContract.deployed();
+    console.log("ETHFS deployed at", ethfsFileStoreContract.address);
 
     const scriptyStorageContract = await (
-      await ethers.getContractFactory("ScriptyStorage")
-    ).deploy(contentStoreContract.address);
+      await ethers.getContractFactory("ScriptyStorageV2")
+    ).deploy(ethfsFileStoreContract.address);
     await scriptyStorageContract.deployed();
     console.log("ScriptyStorage deployed at", scriptyStorageContract.address);
 
-    const scriptyBuilderContract = await (await ethers.getContractFactory("ScriptyBuilder")).deploy();
+    const scriptyBuilderContract = await (await ethers.getContractFactory("ScriptyBuilderV2")).deploy();
     await scriptyBuilderContract.deployed();
     console.log("ScriptyBuilder deployed at", scriptyBuilderContract.address);
 
@@ -105,12 +117,12 @@ export async function deployOrGetContracts(networkName: string) {
 
     return { scriptyStorageContract, scriptyBuilderContract, wethContract };
   } else {
-    const scriptyStorageAddress = addressFor(networkName, "ScriptyStorage");
-    const scriptyStorageContract = await ethers.getContractAt("ScriptyStorage", scriptyStorageAddress);
+    const scriptyStorageAddress = addressFor(networkName, "ScriptyStorageV2");
+    const scriptyStorageContract = await ethers.getContractAt("ScriptyStorageV2", scriptyStorageAddress);
     console.log("ScriptyStorage is already deployed at", scriptyStorageAddress);
 
-    const scriptyBuilderAddress = addressFor(networkName, "ScriptyBuilder");
-    const scriptyBuilderContract = await ethers.getContractAt("ScriptyBuilder", scriptyBuilderAddress);
+    const scriptyBuilderAddress = addressFor(networkName, "ScriptyBuilderV2");
+    const scriptyBuilderContract = await ethers.getContractAt("ScriptyBuilderV2", scriptyBuilderAddress);
     console.log("ScriptyBuilder is already deployed at", scriptyBuilderAddress);
 
     const wethAddress = addressFor(networkName, "WETH");

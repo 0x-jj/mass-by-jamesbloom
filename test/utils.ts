@@ -64,7 +64,7 @@ const DAO_SPLIT = 210; // 21 %
 
 export async function deployContracts() {
   const { scriptyStorageContract, scriptyBuilderContract, wethContract } = await deployOrGetContracts(
-    network.name
+    network
   );
 
   const [dev, artist, dao] = await ethers.getSigners();

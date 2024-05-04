@@ -1,7 +1,7 @@
 import { ethers, network, run } from "hardhat";
 import path from "path";
 import * as utilities from "./utils";
-import { ScriptyStorage } from "../typechain-types";
+import { ScriptyStorageV2 } from "../typechain-types";
 import { BigNumber } from "ethers";
 import { getMerkleRootWithDiscounts } from "../test/utils";
 import { discounts } from "../offchain/discounts";
@@ -17,13 +17,13 @@ const delay = (ms: number) => {
 };
 
 async function storeScript(
-  storageContract: ScriptyStorage,
+  storageContract: ScriptyStorageV2,
   name: string,
   filePath: string,
   compress = false
 ) {
   // Check if script is already stored
-  const storedScript = await storageContract.scripts(name);
+  const storedScript = await storageContract.contents(name);
   if (storedScript.size.gt(BigNumber.from(0))) {
     console.log(`${name} is already stored`);
     return;
@@ -40,21 +40,21 @@ async function storeScript(
 
   if (storedScript.owner === ethers.constants.AddressZero) {
     // First create the script in the storage contract
-    await waitIfNeeded(await storageContract.createScript(name, utilities.stringToBytes(name)));
+    await waitIfNeeded(await storageContract.createContent(name, utilities.stringToBytes(name)));
   }
 
   // Store each chunk
   // [WARNING]: With big files this can be very costly
   for (let i = 0; i < scriptChunks.length; i++) {
-    console.log("chunk head:", scriptChunks[i].slice(0, 10));
+    //console.log("chunk head:", scriptChunks[i].slice(0, 10));
     await waitIfNeeded(
-      await storageContract.addChunkToScript(
+      await storageContract.addChunkToContent(
         name,
         utilities.stringToBytes(scriptChunks[i]),
         network.name === "hardhat" ? { gasLimit: 30_000_000 } : undefined
       )
     );
-    console.log(`${name} chunk #`, i + 1, "/", scriptChunks.length, "chunk length: ", scriptChunks[i].length);
+    console.log(`${name} chunk #${i + 1}/${scriptChunks.length}. Size: ${scriptChunks[i].length} bytes`);
   }
   console.log(`${name} is stored`);
 }
@@ -79,50 +79,35 @@ async function main() {
   console.log("Deployer:", dev.address);
 
   const { scriptyStorageContract, scriptyBuilderContract, wethContract } =
-    await utilities.deployOrGetContracts(network.name);
+    await utilities.deployOrGetContracts(network);
 
-  const scripts: { name: string; path: string; wrapType: number }[] = [
-    { name: "jb_mass_base", path: "scripts/massBase.js", wrapType: 0 },
-    { name: "jb_mass_goldWallets", path: "scripts/goldWallets.js", wrapType: 0 },
-    { name: "jb_mass_dataTools", path: "scripts/dataTools.js", wrapType: 0 },
-    { name: "jb_mass_three", path: "scripts/three.js", wrapType: 0 },
-    { name: "jb_mass_parameters", path: "scripts/parameters.js", wrapType: 0 },
-    { name: "jb_mass_mersenneTwister", path: "scripts/mersenneTwister.js", wrapType: 0 },
-    { name: "jb_mass_util", path: "scripts/util.js", wrapType: 0 },
-    { name: "jb_mass_perlin", path: "scripts/perlin.js", wrapType: 0 },
-    { name: "jb_mass_ImprovedNoise", path: "scripts/ImprovedNoise.js", wrapType: 0 },
-    { name: "jb_mass_OBJLoader", path: "scripts/OBJLoader.js", wrapType: 0 },
-    { name: "jb_mass_objects", path: "scripts/objects.js", wrapType: 2 },
-    { name: "jb_mass_textures", path: "scripts/textures.js", wrapType: 2 },
-    { name: "gunzipScripts-0.0.1", path: "scripts/gunzipScripts-0.0.1.js", wrapType: 0 },
-    { name: "jb_mass_main", path: "scripts/main.js", wrapType: 0 },
+  const scripts: { name: string; path: string; compress: boolean }[] = [
+    { name: "jb_mass_base", path: "scripts/massBase.js", compress: false },
+    { name: "jb_mass_goldWallets", path: "scripts/goldWallets.js", compress: false },
+    { name: "jb_mass_dataTools", path: "scripts/dataTools.js", compress: false },
+    { name: "three-v0.147.0.min.js.gz", path: "scripts/three-v0.147.0.min.js.gz.txt", compress: false },
+    { name: "jb_mass_parameters", path: "scripts/parameters.js", compress: false },
+    { name: "jb_mass_mersenneTwister", path: "scripts/mersenneTwister.js", compress: false },
+    { name: "jb_mass_util", path: "scripts/util.js", compress: false },
+    { name: "jb_mass_perlin", path: "scripts/perlin.js", compress: false },
+    { name: "jb_mass_ImprovedNoise", path: "scripts/ImprovedNoise.js", compress: false },
+    { name: "jb_mass_OBJLoader", path: "scripts/OBJLoader.js", compress: false },
+    { name: "jb_mass_objects", path: "scripts/objects.js", compress: true },
+    { name: "jb_mass_textures", path: "scripts/textures.js", compress: true },
+    { name: "gunzipScripts-0.0.1", path: "scripts/gunzipScripts-0.0.1.js", compress: false },
+    { name: "jb_mass_main", path: "scripts/main.js", compress: false },
   ];
 
   for (let i = 0; i < scripts.length; i++) {
     const script = scripts[i];
-    await storeScript(scriptyStorageContract, script.name, script.path, script.wrapType === 2);
+    await storeScript(scriptyStorageContract, script.name, script.path, script.compress);
   }
-
-  const scriptRequests = scripts.map((script) => {
-    return {
-      name: script.name,
-      contractAddress: scriptyStorageContract.address,
-      contractData: 0,
-      wrapType: script.wrapType,
-      wrapPrefix: utilities.emptyBytes(),
-      wrapSuffix: utilities.emptyBytes(),
-      scriptContent: utilities.emptyBytes(),
-    };
-  });
-
-  const rawBufferSize = await scriptyBuilderContract.getBufferSizeForHTMLWrapped(scriptRequests as any);
 
   const renderer = await ethers.getContractFactory("MassRenderer");
   const rendererContract = await renderer.deploy(
     [dev.address, artist.address, dao.address],
     scriptyBuilderContract.address,
     scriptyStorageContract.address,
-    rawBufferSize,
     "https://arweave.net/mass/",
     ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
   );

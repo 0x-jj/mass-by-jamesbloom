@@ -6,7 +6,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Base64} from "solady/src/utils/Base64.sol";
 
-import {IScriptyBuilder, WrappedScriptRequest} from "./lib/scripty/IScriptyBuilder.sol";
+import {IScriptyBuilderV2, HTMLRequest, HTMLTagType, HTMLTag} from "./lib/scripty/interfaces/IScriptyBuilderV2.sol";
 
 interface IMassContract {
   function tokenData(uint256 tokenId) external view returns (uint256, uint256, bytes32);
@@ -43,7 +43,7 @@ contract MassRenderer is AccessControl {
 
   struct ScriptDefinition {
     string name;
-    uint8 wrapType;
+    HTMLTagType tagType;
   }
 
   ScriptDefinition[] public scriptDefinitions;
@@ -67,7 +67,6 @@ contract MassRenderer is AccessControl {
     address[] memory admins_,
     address _scriptyBuilderAddress,
     address _scriptyStorageAddress,
-    uint256 bufferSize_,
     string memory baseImageURI_,
     string[] memory scriptConstantLabels
   ) {
@@ -78,23 +77,23 @@ contract MassRenderer is AccessControl {
 
     scriptyStorageAddress = _scriptyStorageAddress;
     scriptyBuilderAddress = _scriptyBuilderAddress;
-    bufferSize = bufferSize_;
     baseImageURI = baseImageURI_;
 
-    scriptDefinitions.push(ScriptDefinition("jb_mass_base", 0));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_goldWallets", 0));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_dataTools", 0));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_three", 0));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_parameters", 0));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_mersenneTwister", 0));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_util", 0));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_perlin", 0));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_ImprovedNoise", 0));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_OBJLoader", 0));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_objects", 2));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_textures", 2));
-    scriptDefinitions.push(ScriptDefinition("gunzipScripts-0.0.1", 0));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_main", 0));
+    scriptDefinitions.push(ScriptDefinition("three-v0.147.0.min.js.gz", HTMLTagType.scriptGZIPBase64DataURI));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_objects", HTMLTagType.scriptGZIPBase64DataURI));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_textures", HTMLTagType.scriptGZIPBase64DataURI));
+    scriptDefinitions.push(ScriptDefinition("gunzipScripts-0.0.1", HTMLTagType.script));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_base", HTMLTagType.script));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_goldWallets", HTMLTagType.script));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_dataTools", HTMLTagType.script));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_parameters", HTMLTagType.script));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_mersenneTwister", HTMLTagType.script));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_util", HTMLTagType.script));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_perlin", HTMLTagType.script));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_ImprovedNoise", HTMLTagType.script));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_OBJLoader", HTMLTagType.script));
+
+    scriptDefinitions.push(ScriptDefinition("jb_mass_main", HTMLTagType.script));
 
     setScriptConstantVarNames(scriptConstantLabels);
   }
@@ -114,11 +113,11 @@ contract MassRenderer is AccessControl {
   function setScriptDefinition(
     uint256 idx,
     string calldata scriptName,
-    uint256 wrapType
+    HTMLTagType tagType
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     require(idx < scriptDefinitions.length, "Index out of bounds");
     scriptDefinitions[idx].name = scriptName;
-    scriptDefinitions[idx].wrapType = uint8(wrapType);
+    scriptDefinitions[idx].tagType = tagType;
   }
 
   function updateBufferSize(uint256 newSize) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -277,7 +276,9 @@ contract MassRenderer is AccessControl {
   }
 
   function tokenURI(uint256 tokenId) external view returns (string memory) {
-    WrappedScriptRequest[] memory requests = new WrappedScriptRequest[](15);
+    /// WrappedScriptRequest[] memory requests = new WrappedScriptRequest[](15);
+
+    HTMLTag[] memory requests = new HTMLTag[](15);
 
     (uint256 tokenSeed, uint256 tokenSeedIncrement) = getSeedVariables(tokenId);
     (string memory contractMetricsSelector, string memory tokenMetricsSelector) = massContract.getSelectors();
@@ -294,18 +295,20 @@ contract MassRenderer is AccessControl {
       seedIncrement: tokenSeedIncrement
     });
 
-    requests[0].wrapType = 0;
-    requests[0].scriptContent = getConstantsScript(constants);
+    requests[0].tagType = HTMLTagType.script;
+    requests[0].tagContent = getConstantsScript(constants);
 
     for (uint256 i = 0; i < scriptDefinitions.length; i++) {
       requests[i + 1].name = scriptDefinitions[i].name;
-      requests[i + 1].wrapType = scriptDefinitions[i].wrapType;
+      requests[i + 1].tagType = scriptDefinitions[i].tagType;
       requests[i + 1].contractAddress = scriptyStorageAddress;
     }
 
-    bytes memory base64EncodedHTMLDataURI = IScriptyBuilder(scriptyBuilderAddress).getEncodedHTMLWrapped(
-      requests,
-      bufferSize + requests[0].scriptContent.length + 17 // 17 is the length of the script tags
+    HTMLRequest memory htmlRequest;
+    htmlRequest.bodyTags = requests;
+
+    bytes memory base64EncodedHTMLDataURI = IScriptyBuilderV2(scriptyBuilderAddress).getEncodedHTML(
+      htmlRequest
     );
 
     return
