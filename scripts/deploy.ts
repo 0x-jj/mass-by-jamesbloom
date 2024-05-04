@@ -84,7 +84,7 @@ async function main() {
   const scripts: { name: string; path: string; compress: boolean }[] = [
     { name: "jb_mass_base", path: "scripts/massBase.js", compress: false },
     { name: "three-v0.147.0.min.js.gz", path: "scripts/three-v0.147.0.min.js.gz.txt", compress: false },
-    { name: "jb_mass_parameters", path: "scripts/parameters-min.js", compress: false },
+    { name: "jb_mass_parameters", path: "scripts/parameters-min.js", compress: true },
     { name: "jb_mass_objects", path: "scripts/objects.js", compress: true },
     { name: "jb_mass_textures", path: "scripts/textures.js", compress: true },
     { name: "gunzipScripts-0.0.1", path: "scripts/gunzipScripts-0.0.1.js", compress: false },

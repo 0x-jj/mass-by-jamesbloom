@@ -25,7 +25,6 @@ contract MassRenderer is AccessControl {
 
   address public immutable scriptyStorageAddress;
   address public immutable scriptyBuilderAddress;
-  uint256 private bufferSize;
 
   string public baseImageURI;
 
@@ -79,11 +78,11 @@ contract MassRenderer is AccessControl {
     baseImageURI = baseImageURI_;
 
     scriptDefinitions.push(ScriptDefinition("three-v0.147.0.min.js.gz", HTMLTagType.scriptGZIPBase64DataURI));
+    scriptDefinitions.push(ScriptDefinition("jb_mass_parameters", HTMLTagType.scriptGZIPBase64DataURI));
     scriptDefinitions.push(ScriptDefinition("jb_mass_objects", HTMLTagType.scriptGZIPBase64DataURI));
     scriptDefinitions.push(ScriptDefinition("jb_mass_textures", HTMLTagType.scriptGZIPBase64DataURI));
     scriptDefinitions.push(ScriptDefinition("gunzipScripts-0.0.1", HTMLTagType.script));
     scriptDefinitions.push(ScriptDefinition("jb_mass_base", HTMLTagType.script));
-    scriptDefinitions.push(ScriptDefinition("jb_mass_parameters", HTMLTagType.script));
     scriptDefinitions.push(ScriptDefinition("jb_mass_main", HTMLTagType.script));
 
     setScriptConstantVarNames(
@@ -122,10 +121,6 @@ contract MassRenderer is AccessControl {
     require(idx < scriptDefinitions.length, "Index out of bounds");
     scriptDefinitions[idx].name = scriptName;
     scriptDefinitions[idx].tagType = tagType;
-  }
-
-  function updateBufferSize(uint256 newSize) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    bufferSize = newSize;
   }
 
   function getSeedVariables(uint256 tokenId) internal view returns (uint256, uint256, uint256) {
@@ -271,9 +266,7 @@ contract MassRenderer is AccessControl {
   }
 
   function tokenURI(uint256 tokenId) external view returns (string memory) {
-    /// WrappedScriptRequest[] memory requests = new WrappedScriptRequest[](15);
-
-    HTMLTag[] memory requests = new HTMLTag[](15);
+    HTMLTag[] memory requests = new HTMLTag[](scriptDefinitions.length + 1);
 
     (uint256 tokenSeed, uint256 tokenSeedIncrement, uint256 resetTimestamp) = getSeedVariables(tokenId);
     (string memory contractMetricsSelector, string memory tokenMetricsSelector) = massContract.getSelectors();
