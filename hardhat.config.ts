@@ -12,21 +12,16 @@ import "hardhat-watcher";
 
 const SEED_PHRASE = process.env.SEED_PHRASE as string;
 const ALCHEMY_KEY = process.env.ALCHEMY_KEY as string;
-const ALCHEMY_KEY_GOERLI = process.env.ALCHEMY_KEY_GOERLI as string;
 const QUIKNODE_KEY_GOERLI = process.env.QUIKNODE_KEY_GOERLI as string;
+const ALCHEMY_SEPOLIA_KEY = process.env.ALCHEMY_SEPOLIA_KEY as string;
 
-// This is a sample Hardhat task. To learn how to create your own go to
-// https://hardhat.org/guides/create-task.html
-task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
+task("accounts", "Prints the list of accounts", async (_, hre) => {
   const accounts = await hre.ethers.getSigners();
 
   for (const account of accounts.slice(0, 10)) {
     console.log(account.address);
   }
 });
-
-// You need to export an object to set up your config
-// Go to https://hardhat.org/config/ to learn more
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
@@ -50,20 +45,29 @@ module.exports = {
   },
   networks: {
     hardhat: {
-      // Uncomment when you want the hardhat network to fork mainnet
       // forking: {
       //   url: `https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_KEY}`,
       // },
       blockGasLimit: 500000000,
       timeout: 100000000,
       accounts: {
+        initialIndex: 4,
         count: 10,
         mnemonic: SEED_PHRASE,
       },
     },
     goerli: {
       url: `https://sly-warmhearted-gas.ethereum-goerli.quiknode.pro/${QUIKNODE_KEY_GOERLI}/`,
-      // url: `https://eth-goerli.g.alchemy.com/v2/${ALCHEMY_KEY_GOERLI}`,
+      blockGasLimit: 500000000,
+      accounts: {
+        initialIndex: 4,
+        count: 10,
+        mnemonic: SEED_PHRASE,
+      },
+      gasMultiplier: 2,
+    },
+    sepolia: {
+      url: `https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_SEPOLIA_KEY}`,
       blockGasLimit: 500000000,
       accounts: {
         initialIndex: 4,
@@ -83,7 +87,7 @@ module.exports = {
     },
   },
   gasReporter: {
-    enabled: true,
+    enabled: false,
     gasPrice: 30,
     currency: "USD",
     coinmarketcap: process.env.COINMARKETCAP_API_KEY,
@@ -113,5 +117,5 @@ module.exports = {
 };
 
 export default {
-  solidity: "0.8.0",
+  solidity: "0.8.17",
 };

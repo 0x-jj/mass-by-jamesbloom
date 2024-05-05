@@ -2,6 +2,9 @@ import { ethers } from "hardhat";
 import zlib from "zlib";
 import fs from "fs";
 import { Network } from "hardhat/types";
+import { ScriptyStorageV2 } from "../typechain-types";
+import { BigNumber } from "ethers";
+import path from "path";
 
 export const stringToBytes = (str: string) => {
   return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(str));
@@ -50,8 +53,8 @@ export const toGZIPBase64String = (data: any) => {
 
 const addresses = {
   ethereum: {
-    ScriptyStorage: "0x096451F43800f207FC32B4FF86F286EdaF736eE3",
-    ScriptyBuilder: "0x16b727a2Fc9322C724F4Bc562910c99a5edA5084",
+    ScriptyStorageV2: "0xbD11994aABB55Da86DC246EBB17C1Be0af5b7699",
+    ScriptyBuilderV2: "0xD7587F110E08F4D120A231bA97d3B577A81Df022",
     ETHFSFileStorage: "0xFc7453dA7bF4d0c739C1c53da57b3636dAb0e11e",
     WETH: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
     DelegateCash: "0x00000000000076a84fef008cdabe6409d2fe638b",
@@ -59,22 +62,19 @@ const addresses = {
     ethfs_FileStore: "0x9746fD0A77829E12F8A9DBe70D7a322412325B91",
   },
   goerli: {
-    ScriptyStorage: "0xEA5cD8A8D4eFdA42266E7B9139F8d80915A56daf",
-    ScriptyBuilder: "0x610c05bC5739baf4837fF67d5fc5Ab6D9Ee7558D",
+    ScriptyStorageV2: "0xbD11994aABB55Da86DC246EBB17C1Be0af5b7699",
+    ScriptyBuilderV2: "0xD7587F110E08F4D120A231bA97d3B577A81Df022",
     ETHFSFileStorage: "0x70a78d91A434C1073D47b2deBe31C184aA8CA9Fa",
     WETH: "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6",
     DelegateCash: "0x00000000000076a84fef008cdabe6409d2fe638b",
     ethfs_ContentStore: "0xED7C16aB4eB4D091F492713e5235Ac93852bc3a0",
     ethfs_FileStore: "0x5E348d0975A920E9611F8140f84458998A53af94",
   },
-  localhost: {
-    ScriptyStorage: "0xEA5cD8A8D4eFdA42266E7B9139F8d80915A56daf",
-    ScriptyBuilder: "0x610c05bC5739baf4837fF67d5fc5Ab6D9Ee7558D",
-    ETHFSFileStorage: "0x70a78d91A434C1073D47b2deBe31C184aA8CA9Fa",
+  sepolia: {
+    ScriptyStorageV2: "0xbD11994aABB55Da86DC246EBB17C1Be0af5b7699",
+    ScriptyBuilderV2: "0xD7587F110E08F4D120A231bA97d3B577A81Df022",
     WETH: "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6",
-    DelegateCash: "0x00000000000076a84fef008cdabe6409d2fe638b",
-    ethfs_ContentStore: "0xED7C16aB4eB4D091F492713e5235Ac93852bc3a0",
-    ethfs_FileStore: "0x5E348d0975A920E9611F8140f84458998A53af94",
+    DelegateCash: "0x00000000000000447e69651d841bD8D104Bed493",
   },
 };
 
@@ -131,4 +131,59 @@ export async function deployOrGetContracts(network: Network) {
 
     return { scriptyStorageContract, scriptyBuilderContract, wethContract };
   }
+}
+
+export async function storeScript(
+  network: Network,
+  storageContract: ScriptyStorageV2,
+  name: string,
+  filePath: string,
+  compress = false
+) {
+  const storedScript = await storageContract.contents(name);
+  if (storedScript.size.gt(BigNumber.from(0))) {
+    console.log(`${name} is already stored`);
+    return;
+  }
+
+  let script = readFile(path.join(__dirname, filePath));
+
+  if (compress) {
+    script = toGZIPBase64String(script);
+  }
+
+  const scriptChunks = chunkSubstr(script, 24575);
+
+  if (storedScript.owner === ethers.constants.AddressZero) {
+    await waitIfNeeded(await storageContract.createContent(name, stringToBytes(name)));
+  }
+
+  for (let i = 0; i < scriptChunks.length; i++) {
+    console.log(
+      `Storing ${name} chunk ${i + 1}/${scriptChunks.length}. Size: ${scriptChunks[i].length} bytes`
+    );
+
+    if (network.name === "hardhat") {
+      await waitIfNeeded(
+        await storageContract.addChunkToContent(name, stringToBytes(scriptChunks[i]), { gasLimit: 500000000 })
+      );
+    } else {
+      await waitIfNeeded(await storageContract.addChunkToContent(name, stringToBytes(scriptChunks[i])));
+    }
+  }
+  console.log(`${name} is stored`);
+}
+
+const waitIfNeeded = async (tx: any) => {
+  if (tx.wait) {
+    await tx.wait(1);
+  }
+};
+
+export enum HTMLTagType {
+  useTagOpenAndClose,
+  script,
+  scriptBase64DataURI,
+  scriptGZIPBase64DataURI,
+  scriptPNGBase64DataURI,
 }

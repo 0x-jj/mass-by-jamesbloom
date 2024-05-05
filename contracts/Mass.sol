@@ -81,7 +81,7 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
     address goldRenderer_,
     uint256 maxSupply_,
     address delegateCash_
-  ) PaymentSplitter(payees, shares) ERC721("GOLD", "GOLD") {
+  ) PaymentSplitter(payees, shares) ERC721("Mass", "MASS") {
     _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
     for (uint256 i = 0; i < admins_.length; i++) {
       _grantRole(DEFAULT_ADMIN_ROLE, admins_[i]);
@@ -129,7 +129,7 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
 
   function mint(address to) public whenNotPaused {
     if (totalSupply >= maxSupply) revert MaxSupplyReached();
-    if (!(_msgSender() == minter || _msgSender() == owner())) revert NotAuthorized();
+    // if (!(_msgSender() == minter || _msgSender() == owner())) revert NotAuthorized();
 
     uint256 tokenId = totalSupply;
     totalSupply++;
@@ -138,6 +138,12 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
       abi.encodePacked(blockhash(block.number - 1), block.number, block.timestamp, _msgSender(), tokenId)
     );
     _safeMint(to, tokenId);
+  }
+
+  function mintMany(uint256 amt) external {
+    for (uint256 i = 0; i < amt; i++) {
+      mint(_msgSender());
+    }
   }
 
   function tokenURI(uint256 tokenId) public view override returns (string memory) {
