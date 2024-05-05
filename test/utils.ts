@@ -2,7 +2,7 @@ import { BigNumber, BigNumberish } from "ethers";
 import { MerkleTree } from "merkletreejs";
 import keccak256 from "keccak256";
 import { ethers, network } from "hardhat";
-import { deployOrGetContracts } from "../scripts/utils";
+import * as utilities from "../scripts/utils";
 
 export async function timeTravel(duration: BigNumberish) {
   if (!BigNumber.isBigNumber(duration)) {
@@ -62,10 +62,55 @@ const DEV_SPLIT = 140; // 14%
 const ARTIST_SPLIT = 650; // 65 %
 const DAO_SPLIT = 210; // 21 %
 
+export const scriptDefs: { name: string; path: string; compress: boolean; tagType: utilities.HTMLTagType }[] =
+  [
+    {
+      name: "three-v0.147.0.min.js.gz",
+      path: "scripts/three-v0.147.0.min.js.gz.txt",
+      compress: false,
+      tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
+    },
+    {
+      name: "jb_mass_parameters2",
+      path: "scripts/parameters-min.js",
+      compress: true,
+      tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
+    },
+    {
+      name: "jb_mass_objects",
+      path: "scripts/objects.js",
+      compress: true,
+      tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
+    },
+    {
+      name: "jb_mass_textures",
+      path: "scripts/textures.js",
+      compress: true,
+      tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
+    },
+    {
+      name: "gunzipScripts-0.0.1.js",
+      path: "scripts/gunzipScripts-0.0.1.js",
+      compress: false,
+      tagType: utilities.HTMLTagType.scriptBase64DataURI,
+    },
+    {
+      name: "jb_mass_base",
+      path: "scripts/massBase.js",
+      compress: false,
+      tagType: utilities.HTMLTagType.script,
+    },
+    {
+      name: "jb_mass_main2",
+      path: "scripts/main-min.js",
+      compress: false,
+      tagType: utilities.HTMLTagType.script,
+    },
+  ];
+
 export async function deployContracts() {
-  const { scriptyStorageContract, scriptyBuilderContract, wethContract } = await deployOrGetContracts(
-    network
-  );
+  const { scriptyStorageContract, scriptyBuilderContract, wethContract } =
+    await utilities.deployOrGetContracts(network);
 
   const [dev, artist, dao] = await ethers.getSigners();
 
@@ -76,8 +121,8 @@ export async function deployContracts() {
     [dev.address, artist.address, dao.address],
     scriptyBuilderContract.address,
     scriptyStorageContract.address,
-    210000,
-    "https://arweave.net/gold/"
+    "https://arweave.net/gold/",
+    scriptDefs
   );
   await rendererContract.deployed();
   console.log("Renderer Contract is deployed", rendererContract.address);

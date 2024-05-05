@@ -64,7 +64,7 @@ async function main() {
       tagType: utilities.HTMLTagType.script,
     },
     {
-      name: "jb_mass_main2",
+      name: "jb_mass_main3",
       path: "scripts/main-min.js",
       compress: false,
       tagType: utilities.HTMLTagType.script,

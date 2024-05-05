@@ -10,6 +10,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {ERC721} from "./lib/ERC721.sol";
 import {IDelegateCash} from "./lib/IDelegateCash.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 error NotAuthorized();
 error MaxSupplyReached();
@@ -185,12 +186,28 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
     }
   }
 
-  function getHolderAddresses() public view returns (address[] memory) {
-    address[] memory owners = new address[](totalSupply);
+  function getHolderAddresses() public view returns (string[] memory) {
+    string[] memory owners = new string[](totalSupply);
+    address[] memory seen = new address[](totalSupply);
+
+    uint256 count = 0;
     for (uint256 i = 0; i < totalSupply; i++) {
-      owners[i] = ownerOf(i);
+      address tokenOwner = ownerOf(i);
+      if (findElement(seen, tokenOwner) == false) {
+        owners[count] = Strings.toHexString(tokenOwner);
+        seen[i] = tokenOwner;
+        count++;
+      }
     }
-    return owners;
+    return trimArray(owners, count);
+  }
+
+  function trimArray(string[] memory arr, uint256 toLength) internal pure returns (string[] memory) {
+    string[] memory trimmed = new string[](toLength);
+    for (uint256 i = 0; i < toLength; i++) {
+      trimmed[i] = arr[i];
+    }
+    return trimmed;
   }
 
   function getContractMetrics()
@@ -205,7 +222,7 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
       RoyaltyReceipt[HISTORY_LENGTH] memory,
       RoyaltyReceipt[HISTORY_LENGTH] memory,
       uint256,
-      address[] memory
+      string[] memory
     )
   {
     return (

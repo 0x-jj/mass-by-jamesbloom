@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers, network } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Mass, MassRenderer, WETH } from "../typechain-types";
-import { deployContracts } from "./utils";
+import { deployContracts, scriptDefs } from "./utils";
 import { takeSnapshot, revertToSnapshot } from "./helpers/snapshot";
 import { deployOrGetContracts } from "../scripts/utils";
 
@@ -26,7 +26,7 @@ describe.only("Renderer", async function () {
       scriptyBuilderContract.address,
       scriptyStorageContract.address,
       "https://arweave.net/gold/",
-      ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
+      scriptDefs
     );
     await rendererContract.deployed();
     contract = rendererContract;
