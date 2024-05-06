@@ -82,7 +82,7 @@ const SAFE_SINGLETON_FACTORY = "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7";
 const SAFE_SINGLETON_FACTORY_BYTECODE =
   "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3";
 
-export const addressFor = (networkName: string, name: string) => {
+export const addressFor = (networkName: string, name: string): string => {
   // @ts-ignore
   return addresses[networkName][name];
 };

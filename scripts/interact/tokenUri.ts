@@ -2,7 +2,7 @@ import { ethers } from "hardhat";
 import * as utilities from "../utils";
 import path from "path";
 
-const nftContractAddress = "0xA6Fe9a77b768dB03171464A355B7277890C8F292";
+const nftContractAddress = "0xb80475A044dA25E1Cd09474d05e27f8Ae9481857";
 
 async function main(storeData?: boolean) {
   const nft = await ethers.getContractAt("Mass", nftContractAddress);

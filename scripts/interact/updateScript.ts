@@ -1,20 +1,21 @@
 import { ethers, network } from "hardhat";
 import * as utilities from "../utils";
 
-const rendererContractAddress = "0x1c0DB5c204C45c260dB7a56fE3ff0C85a5b3824E";
+const rendererContractAddress = "0xd816825af71993Dc4FfFe39564c7B265806d7196";
 
 const details = {
-  newScriptName: "jb_mass_main2",
-  scriptPath: "scripts/main-min.js",
-  compress: false,
-  scriptIndex: 6,
-  tagType: utilities.HTMLTagType.script,
+  newScriptName: "jb_params2",
+  scriptPath: "scripts/parameters-min.js",
+  compress: true,
+  scriptIndex: 1,
+  tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
 };
 
 async function main() {
   const renderer = await ethers.getContractAt("MassRenderer", rendererContractAddress);
 
-  const storageContract = utilities.addressFor(network.name, "ScriptyStorageV2");
+  const storageContractAddr = utilities.addressFor(network.name, "ScriptyStorageV2");
+  const storageContract = await ethers.getContractAt("ScriptyStorageV2", storageContractAddr);
 
   await utilities.storeScript(
     network,

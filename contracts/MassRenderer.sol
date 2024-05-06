@@ -137,10 +137,10 @@ contract MassRenderer is AccessControl {
       abi.encodePacked(
         '{"name":"Mass #',
         tid,
-        '", "description":"GOLD is a dynamic cryptoart series where the artworks change in response to the collection',
-        "'s own live market activity. The actions of GOLD collectors are part of this ever-changing artwork, where prices, levels of activity and on-chain provenance define the art itself.\\n\\n",
-        "How does the market affect the way we see art? Does the sale price of an NFT change our perception of it? In GOLD, market factors literally influence the appearance of the dynamic imagery. From a sale to a listing, from the amount of time an artwork is held to whether it has recently been flipped, all this data is recorded by the contract and reflected live in each GOLD piece.\\n\\nGOLD is an artistic exploration of NFT market behaviour. It explores how we see in digital environments, and how market networks influence how we see. The full spectrum of possibilities for GOLD will take years to reveal.\\n\\nThe series is 100% on-chain - the artworks are composed and rendered directly from the blockchain - with live data streamed from an Ethereum node. Viewers can change the node by pressing",
-        " 'G'.",
+        '", "description":"Mass is a shared 3D interactive space that lives on the blockchain. Everyone shares the same space, but it appears differently to each viewer and evolves in unexpected ways over time.\\n\\n',
+        "Mass is a surveillance machine, recording every action its owners take on-chain and communicating them back to the group through changes in the dynamic 3D compositions. But there are bugs in the code. The errors make the communication of events unreliable. The visual environment has also been constructed incorrectly and its digital objects are fragmented.\\n\\n",
+        "Mass is a 100% on-chain, 3D relational artwork. An open space of shared digital presence.\\n\\n",
+        "Press 'I' and 'O' to zoom in and out. Press 'M' to change the Ethereum node",
         '",',
         '"external_url": "https://mass.is/token/',
         tid,
@@ -428,8 +428,9 @@ contract MassRenderer is AccessControl {
 
     uint256 j = 1;
     for (uint256 i = 0; i < objects.length; i += 3) {
-      uint256 textTraitIdx = i + 2;
+      uint256 textTraitIdx = objects[i + 2];
       uint256 traitArrayIdx = j;
+
       allTraits[traitArrayIdx] = Trait({typeName: text_traits[textTraitIdx], valueName: "true"});
       j++;
     }

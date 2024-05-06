@@ -6,7 +6,7 @@ import { deployContracts } from "./utils";
 
 const toWei = ethers.utils.parseEther;
 
-describe.only("NFT data", async function () {
+describe("NFT data", async function () {
   let contract: Mass;
   let deployer: SignerWithAddress;
   let wethContract: WETH;
@@ -76,7 +76,7 @@ describe.only("NFT data", async function () {
     expect(wethReceipts3[2].amount.toString()).to.equal(toWei("5").toString());
   });
 
-  it.only("Correctly tracks transfers, approvals and holder count", async function () {
+  it("Correctly tracks transfers, approvals and holder count", async function () {
     const [addy1, addy2] = await ethers.getSigners();
 
     await contract.transferFrom(addy1.address, addy2.address, 0);
@@ -98,5 +98,17 @@ describe.only("NFT data", async function () {
 
     // Holder addys
     expect(metrics[8][0].toLowerCase()).to.equal(addy1.address.toLowerCase());
+  });
+
+  it("Correctly tracks holder addresses", async function () {
+    const [addy1, addy2] = await ethers.getSigners();
+
+    await contract.mint(addy1.address);
+    await contract.mint(addy2.address);
+
+    const metrics = await contract.getContractMetrics();
+
+    expect(metrics[8][0].toLowerCase()).to.equal(addy1.address.toLowerCase());
+    expect(metrics[8][1].toLowerCase()).to.equal(addy2.address.toLowerCase());
   });
 });

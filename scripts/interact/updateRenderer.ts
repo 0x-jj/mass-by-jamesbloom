@@ -1,25 +1,71 @@
 import { ethers } from "hardhat";
+import * as utilities from "../utils";
 
-const nftContractAddress = "0xCcBE56eA12B845A281431290F202196864F2f576";
-const scriptyBuilder = "0x16b727a2Fc9322C724F4Bc562910c99a5edA5084";
-const scriptyStorage = "0x096451F43800f207FC32B4FF86F286EdaF736eE3";
+const nftContractAddress = "0xb80475A044dA25E1Cd09474d05e27f8Ae9481857";
+const scriptyBuilder = utilities.addressFor("sepolia", "ScriptyBuilderV2");
+const scriptyStorage = utilities.addressFor("sepolia", "ScriptyStorageV2");
+
+const scripts: { name: string; path: string; compress: boolean; tagType: utilities.HTMLTagType }[] = [
+  {
+    name: "three-v0.147.0.min.js.gz",
+    path: "scripts/three-v0.147.0.min.js.gz.txt",
+    compress: false,
+    tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
+  },
+  {
+    name: "jb_params2",
+    path: "scripts/parameters-min.js",
+    compress: true,
+    tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
+  },
+  {
+    name: "jb_mass_objects",
+    path: "scripts/objects.js",
+    compress: true,
+    tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
+  },
+  {
+    name: "jb_mass_textures",
+    path: "scripts/textures.js",
+    compress: true,
+    tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
+  },
+  {
+    name: "gunzipScripts-0.0.1.js",
+    path: "scripts/gunzipScripts-0.0.1.js",
+    compress: false,
+    tagType: utilities.HTMLTagType.scriptBase64DataURI,
+  },
+  {
+    name: "jb_mass_base",
+    path: "scripts/massBase.js",
+    compress: false,
+    tagType: utilities.HTMLTagType.script,
+  },
+  {
+    name: "jb_mass_main4",
+    path: "scripts/main-min.js",
+    compress: false,
+    tagType: utilities.HTMLTagType.script,
+  },
+];
 
 async function main() {
   const [admin] = await ethers.getSigners();
 
-  const renderer = await ethers.getContractFactory("GoldRenderer");
+  const renderer = await ethers.getContractFactory("MassRenderer");
   const rendererContract = await renderer.deploy(
     [admin.address],
     scriptyBuilder,
     scriptyStorage,
-    250000,
-    "https://arweave.net/ZDUYnl92GoUI8jJwX3x3GiRzVIWq6da_6wp2ZL5bDps/"
+    "https://arweave.net//",
+    scripts
   );
   const newAddress = rendererContract.address;
 
-  const nftContract = await ethers.getContractAt("Gold", nftContractAddress);
+  const nftContract = await ethers.getContractAt("Mass", nftContractAddress);
   await nftContract.setRendererAddress(newAddress);
-  await rendererContract.setGoldContract(nftContractAddress);
+  await rendererContract.setMassContract(nftContractAddress);
 
   return newAddress;
 }

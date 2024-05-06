@@ -34,7 +34,7 @@ async function main() {
       tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
     },
     {
-      name: "jb_mass_parameters2",
+      name: "jb_params2",
       path: "scripts/parameters-min.js",
       compress: true,
       tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
@@ -64,7 +64,7 @@ async function main() {
       tagType: utilities.HTMLTagType.script,
     },
     {
-      name: "jb_mass_main3",
+      name: "jb_mass_main4",
       path: "scripts/main-min.js",
       compress: false,
       tagType: utilities.HTMLTagType.script,
@@ -76,16 +76,20 @@ async function main() {
     await utilities.storeScript(network, scriptyStorageContract, script.name, script.path, script.compress);
   }
 
-  const renderer = await ethers.getContractFactory("MassRenderer");
-  const rendererContract = await renderer.deploy(
-    [dev.address, artist.address, dao.address],
-    scriptyBuilderContract.address,
-    scriptyStorageContract.address,
-    "https://arweave.net/mass/",
-    scripts
+  //const renderer = await ethers.getContractFactory("MassRenderer");
+  const rendererContract = await ethers.getContractAt(
+    "MassRenderer",
+    "0xe3324776E6E4efcd0d60D096709707CfbFD2c13E"
   );
-  await rendererContract.deployed();
-  console.log("Renderer Contract is deployed", rendererContract.address);
+  // const rendererContract = await renderer.deploy(
+  //   [dev.address, artist.address, dao.address],
+  //   scriptyBuilderContract.address,
+  //   scriptyStorageContract.address,
+  //   "https://arweave.net/mass/",
+  //   scripts
+  // );
+  // await rendererContract.deployed();
+  // console.log("Renderer Contract is deployed", rendererContract.address);
 
   const nftContract = await (
     await ethers.getContractFactory("Mass")

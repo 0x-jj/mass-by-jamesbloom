@@ -3,7 +3,7 @@ import * as utilities from "../../utils";
 import { getMerkleRoot } from "../../../test/utils";
 import { Seller } from "../../../typechain-types";
 
-const nftContractAddress = "0xA6Fe9a77b768dB03171464A355B7277890C8F292";
+const nftContractAddress = "0xED3484B9BE69576462b293249F2aEfdc7b6BC538";
 
 const toWei = ethers.utils.parseEther;
 
@@ -42,7 +42,7 @@ async function main() {
   };
 
   const sale = await Sale.deploy(
-    toWei("0.25"),
+    toWei("0.0025"),
     sellerConfig,
     dao.address,
     Math.floor(Date.now() / 1000) - 100,

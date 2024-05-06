@@ -64,7 +64,6 @@ describe.only("Renderer", async function () {
   });
 
   it("Can call tokenURI", async function () {
-    const rv = await contract.tokenURI(0);
-    console.log(rv);
+    await contract.tokenURI(0);
   });
 });
