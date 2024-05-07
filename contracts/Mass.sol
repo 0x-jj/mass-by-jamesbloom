@@ -14,9 +14,6 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 error NotAuthorized();
 error MaxSupplyReached();
-error ClaimingTooEarly();
-error ClaimingTooLate();
-error AlreadyClaimed();
 
 interface IMassRenderer {
   function tokenURI(uint256 tokenId) external view returns (string memory);

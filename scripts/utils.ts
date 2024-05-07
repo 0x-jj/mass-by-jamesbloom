@@ -187,3 +187,48 @@ export enum HTMLTagType {
   scriptGZIPBase64DataURI,
   scriptPNGBase64DataURI,
 }
+
+export const scripts: { name: string; path: string; compress: boolean; tagType: HTMLTagType }[] = [
+  {
+    name: "three-v0.147.0.min.js.gz",
+    path: "scripts/three-v0.147.0.min.js.gz.txt",
+    compress: false,
+    tagType: HTMLTagType.scriptGZIPBase64DataURI,
+  },
+  {
+    name: "jb_params3",
+    path: "scripts/parameters-min.js",
+    compress: true,
+    tagType: HTMLTagType.scriptGZIPBase64DataURI,
+  },
+  {
+    name: "jb_mass_objects",
+    path: "scripts/objects.js",
+    compress: true,
+    tagType: HTMLTagType.scriptGZIPBase64DataURI,
+  },
+  {
+    name: "jb_mass_textures",
+    path: "scripts/textures.js",
+    compress: true,
+    tagType: HTMLTagType.scriptGZIPBase64DataURI,
+  },
+  {
+    name: "gunzipScripts-0.0.1.js",
+    path: "scripts/gunzipScripts-0.0.1.js",
+    compress: false,
+    tagType: HTMLTagType.scriptBase64DataURI,
+  },
+  {
+    name: "jb_mass_base",
+    path: "scripts/massBase.js",
+    compress: false,
+    tagType: HTMLTagType.script,
+  },
+  {
+    name: "jb_mass_main6",
+    path: "scripts/main-min.js",
+    compress: false,
+    tagType: HTMLTagType.script,
+  },
+];

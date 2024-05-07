@@ -66,4 +66,17 @@ describe.only("Renderer", async function () {
   it("Can call tokenURI", async function () {
     await contract.tokenURI(0);
   });
+
+  it.only("Mint many", async function () {
+    const [dev, artist, dao] = await ethers.getSigners();
+    for (let i = 1; i < 300; i++) {
+      try {
+        await nft.mint(dev.address);
+        await contract.tokenURI(i);
+      } catch (e) {
+        console.log(i);
+        throw e;
+      }
+    }
+  });
 });

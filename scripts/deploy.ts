@@ -26,70 +26,22 @@ async function main() {
   const { scriptyStorageContract, scriptyBuilderContract, wethContract } =
     await utilities.deployOrGetContracts(network);
 
-  const scripts: { name: string; path: string; compress: boolean; tagType: utilities.HTMLTagType }[] = [
-    {
-      name: "three-v0.147.0.min.js.gz",
-      path: "scripts/three-v0.147.0.min.js.gz.txt",
-      compress: false,
-      tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
-    },
-    {
-      name: "jb_params2",
-      path: "scripts/parameters-min.js",
-      compress: true,
-      tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
-    },
-    {
-      name: "jb_mass_objects",
-      path: "scripts/objects.js",
-      compress: true,
-      tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
-    },
-    {
-      name: "jb_mass_textures",
-      path: "scripts/textures.js",
-      compress: true,
-      tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
-    },
-    {
-      name: "gunzipScripts-0.0.1.js",
-      path: "scripts/gunzipScripts-0.0.1.js",
-      compress: false,
-      tagType: utilities.HTMLTagType.scriptBase64DataURI,
-    },
-    {
-      name: "jb_mass_base",
-      path: "scripts/massBase.js",
-      compress: false,
-      tagType: utilities.HTMLTagType.script,
-    },
-    {
-      name: "jb_mass_main4",
-      path: "scripts/main-min.js",
-      compress: false,
-      tagType: utilities.HTMLTagType.script,
-    },
-  ];
-
-  for (let i = 0; i < scripts.length; i++) {
-    const script = scripts[i];
+  for (let i = 0; i < utilities.scripts.length; i++) {
+    const script = utilities.scripts[i];
     await utilities.storeScript(network, scriptyStorageContract, script.name, script.path, script.compress);
   }
 
-  //const renderer = await ethers.getContractFactory("MassRenderer");
-  const rendererContract = await ethers.getContractAt(
-    "MassRenderer",
-    "0xe3324776E6E4efcd0d60D096709707CfbFD2c13E"
+  const renderer = await ethers.getContractFactory("MassRenderer");
+
+  const rendererContract = await renderer.deploy(
+    [dev.address, artist.address, dao.address],
+    scriptyBuilderContract.address,
+    scriptyStorageContract.address,
+    "https://arweave.net/mass/",
+    utilities.scripts
   );
-  // const rendererContract = await renderer.deploy(
-  //   [dev.address, artist.address, dao.address],
-  //   scriptyBuilderContract.address,
-  //   scriptyStorageContract.address,
-  //   "https://arweave.net/mass/",
-  //   scripts
-  // );
-  // await rendererContract.deployed();
-  // console.log("Renderer Contract is deployed", rendererContract.address);
+  await rendererContract.deployed();
+  console.log("Renderer Contract is deployed", rendererContract.address);
 
   const nftContract = await (
     await ethers.getContractFactory("Mass")
