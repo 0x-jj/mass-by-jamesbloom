@@ -74,7 +74,7 @@ describe.only("Renderer", async function () {
     await contract.tokenURI(0);
   });
 
-  it.skip("Mint many", async function () {
+  it.only("Mint many", async function () {
     const [dev, artist, dao] = await ethers.getSigners();
     for (let i = 1; i < 300; i++) {
       try {

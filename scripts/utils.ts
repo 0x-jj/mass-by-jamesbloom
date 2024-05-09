@@ -196,7 +196,7 @@ export const scripts: { name: string; path: string; compress: boolean; tagType: 
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
   },
   {
-    name: "jb_params4",
+    name: "jb_params5",
     path: "scripts/parameters-min.js",
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
@@ -226,7 +226,7 @@ export const scripts: { name: string; path: string; compress: boolean; tagType: 
     tagType: HTMLTagType.script,
   },
   {
-    name: "jb_mass_main7",
+    name: "jb_mass_main8",
     path: "scripts/main-min.js",
     compress: false,
     tagType: HTMLTagType.script,
