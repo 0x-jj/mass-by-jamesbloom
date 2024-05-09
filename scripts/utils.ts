@@ -73,7 +73,7 @@ const addresses = {
   sepolia: {
     ScriptyStorageV2: "0xbD11994aABB55Da86DC246EBB17C1Be0af5b7699",
     ScriptyBuilderV2: "0xD7587F110E08F4D120A231bA97d3B577A81Df022",
-    WETH: "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6",
+    WETH: "0xaa8e23fb1079ea71e0a56f48a2aa51851d8433d0",
     DelegateCash: "0x00000000000000447e69651d841bD8D104Bed493",
   },
 };
@@ -196,7 +196,7 @@ export const scripts: { name: string; path: string; compress: boolean; tagType: 
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
   },
   {
-    name: "jb_params3",
+    name: "jb_params4",
     path: "scripts/parameters-min.js",
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
@@ -226,7 +226,7 @@ export const scripts: { name: string; path: string; compress: boolean; tagType: 
     tagType: HTMLTagType.script,
   },
   {
-    name: "jb_mass_main6",
+    name: "jb_mass_main7",
     path: "scripts/main-min.js",
     compress: false,
     tagType: HTMLTagType.script,

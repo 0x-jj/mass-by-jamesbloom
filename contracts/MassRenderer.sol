@@ -206,10 +206,14 @@ contract MassRenderer is AccessControl {
     scriptConstantVarNames = varNames;
   }
 
-  function getRawTraitsArrays(uint256 seedToken, uint256 seedIncrement) public view returns (bytes memory) {
+  function getRawTraitsArrays(
+    uint256 seedToken,
+    uint256 seedIncrement,
+    uint256 tokenId
+  ) public view returns (bytes memory) {
     Seed memory seed = Seed({current: seedToken, incrementor: seedIncrement});
 
-    uint256[] memory palettes = pickFromProbabilityArray(paletteProbabilties, seed);
+    uint256[] memory palettes = getPaletteFromDeterministicArray(deterministicPalettes, tokenId);
     uint256[] memory objects = generateObjectTraits(objectProbabilities, seed);
 
     return
@@ -219,10 +223,13 @@ contract MassRenderer is AccessControl {
       );
   }
 
-  function getConstantsScript(ScriptConstants memory constants) internal view returns (bytes memory) {
+  function getConstantsScript(
+    ScriptConstants memory constants,
+    uint256 tokenId
+  ) internal view returns (bytes memory) {
     return
       abi.encodePacked(
-        getRawTraitsArrays(constants.seedToken, constants.seedIncrement),
+        getRawTraitsArrays(constants.seedToken, constants.seedIncrement, tokenId),
         constructJsScalarVar(
           VariableType.STRING,
           scriptConstantVarNames.contractAddy,
@@ -282,7 +289,7 @@ contract MassRenderer is AccessControl {
     });
 
     requests[0].tagType = HTMLTagType.script;
-    requests[0].tagContent = getConstantsScript(constants);
+    requests[0].tagContent = getConstantsScript(constants, tokenId);
 
     for (uint256 i = 0; i < scriptDefinitions.length; i++) {
       requests[i + 1].name = scriptDefinitions[i].name;
@@ -304,6 +311,30 @@ contract MassRenderer is AccessControl {
           Base64.encode(getMetadataObject(base64EncodedHTMLDataURI, tokenId))
         )
       );
+  }
+
+  function generateAllTraits(uint256 tokenId) public view returns (Trait[] memory) {
+    (uint256 tokenSeed, uint256 tokenSeedIncrement, ) = getSeedVariables(tokenId);
+
+    Seed memory seed = Seed({current: tokenSeed, incrementor: tokenSeedIncrement});
+
+    uint256[] memory palettes = getPaletteFromDeterministicArray(deterministicPalettes, tokenId);
+    uint256[] memory objects = generateObjectTraits(objectProbabilities, seed);
+
+    Trait[] memory allTraits = new Trait[](1 + (objects.length / 3));
+
+    allTraits[0] = Trait({typeName: paletteTraitName, valueName: text_traits[palettes[1]]});
+
+    uint256 j = 1;
+    for (uint256 i = 0; i < objects.length; i += 3) {
+      uint256 textTraitIdx = objects[i + 2];
+      uint256 traitArrayIdx = j;
+
+      allTraits[traitArrayIdx] = Trait({typeName: text_traits[textTraitIdx], valueName: "true"});
+      j++;
+    }
+
+    return allTraits;
   }
 
   function getJSONAttributes(Trait[] memory allTraits) internal pure returns (string memory) {
@@ -332,37 +363,15 @@ contract MassRenderer is AccessControl {
       );
   }
 
-  function nextInt(Seed memory seed) internal pure returns (uint256) {
-    seed.current = (1664525 * seed.current + seed.incrementor) % 89652912;
-    return seed.current % 101;
-  }
-
-  function pickFromProbabilityArray(
-    uint256[] memory arr,
-    Seed memory randomSeed
+  function getPaletteFromDeterministicArray(
+    uint256[] memory palettes,
+    uint256 tokenId
   ) internal pure returns (uint256[] memory) {
-    if (arr.length == 3) {
-      return arr;
-    }
-
-    uint256 pick = nextInt(randomSeed) % (arr.length - 3);
-    uint256 pickIndex = (pick / 3) * 3;
-    for (uint256 i = 0; i < 100; i++) {
-      uint256 r = nextInt(randomSeed);
-      uint256 candidate = r % arr.length;
-      uint256 candidateIndex = (candidate / 3) * 3;
-      uint256 candidateProbability = arr[candidateIndex];
-      if (candidateProbability > nextInt(randomSeed)) {
-        pickIndex = candidateIndex;
-        break;
-      }
-    }
-
-    uint256[] memory result = new uint256[](3);
-    result[0] = arr[pickIndex];
-    result[1] = arr[pickIndex + 1];
-    result[2] = arr[pickIndex + 2];
-    return result;
+    uint256 i = tokenId * 2;
+    uint256[] memory rv = new uint256[](2);
+    rv[0] = palettes[i];
+    rv[1] = palettes[i + 1];
+    return rv;
   }
 
   function generateObjectTraits(
@@ -380,7 +389,7 @@ contract MassRenderer is AccessControl {
     for (uint256 i = 0; i < probabilities.length; i++) {
       uint256 v = probabilities[i];
       if (v == 255) {
-        if (currentObjectProbability > nextInt(randomSeed)) {
+        if (currentObjectProbability >= nextInt(randomSeed)) {
           uint256[] memory material = pickFromProbabilityArray(
             trimArray(currentObjectMaterialProbabilities, currentObjectMaterialCount),
             randomSeed
@@ -407,36 +416,45 @@ contract MassRenderer is AccessControl {
     return trimArray(objects, objectCount);
   }
 
+  function nextInt(Seed memory seed) internal pure returns (uint256) {
+    seed.current = (1664525 * seed.current + seed.incrementor) % 89652912;
+    return seed.current % 100;
+  }
+
+  function pickFromProbabilityArray(
+    uint256[] memory arr,
+    Seed memory randomSeed
+  ) internal pure returns (uint256[] memory) {
+    if (arr.length == 3) {
+      return arr;
+    }
+
+    uint256 pick = nextInt(randomSeed) % (arr.length - 3);
+    uint256 pickIndex = (pick / 3) * 3;
+    for (uint256 i = 0; i < 100; i++) {
+      uint256 r = nextInt(randomSeed);
+      uint256 candidate = r % arr.length;
+      uint256 candidateIndex = (candidate / 3) * 3;
+      uint256 candidateProbability = arr[candidateIndex];
+      if (candidateProbability >= nextInt(randomSeed)) {
+        pickIndex = candidateIndex;
+        break;
+      }
+    }
+
+    uint256[] memory result = new uint256[](3);
+    result[0] = arr[pickIndex];
+    result[1] = arr[pickIndex + 1];
+    result[2] = arr[pickIndex + 2];
+    return result;
+  }
+
   function trimArray(uint256[] memory arr, uint256 toLength) internal pure returns (uint256[] memory) {
     uint256[] memory trimmed = new uint256[](toLength);
     for (uint256 i = 0; i < toLength; i++) {
       trimmed[i] = arr[i];
     }
     return trimmed;
-  }
-
-  function generateAllTraits(uint256 tokenId) public view returns (Trait[] memory) {
-    (uint256 tokenSeed, uint256 tokenSeedIncrement, ) = getSeedVariables(tokenId);
-
-    Seed memory seed = Seed({current: tokenSeed, incrementor: tokenSeedIncrement});
-
-    uint256[] memory palettes = pickFromProbabilityArray(paletteProbabilties, seed);
-    uint256[] memory objects = generateObjectTraits(objectProbabilities, seed);
-
-    Trait[] memory allTraits = new Trait[]((palettes.length / 3) + (objects.length / 3));
-
-    allTraits[0] = Trait({typeName: paletteTraitName, valueName: text_traits[palettes[2]]});
-
-    uint256 j = 1;
-    for (uint256 i = 0; i < objects.length; i += 3) {
-      uint256 textTraitIdx = objects[i + 2];
-      uint256 traitArrayIdx = j;
-
-      allTraits[traitArrayIdx] = Trait({typeName: text_traits[textTraitIdx], valueName: "true"});
-      j++;
-    }
-
-    return allTraits;
   }
 
   function stringEq(string memory a, string memory b) internal pure returns (bool result) {
@@ -912,98 +930,6 @@ contract MassRenderer is AccessControl {
     49,
     255
   ];
-  uint256[] internal paletteProbabilties = [
-    4,
-    0,
-    123,
-    3,
-    1,
-    124,
-    3,
-    2,
-    125,
-    4,
-    3,
-    126,
-    4,
-    4,
-    127,
-    4,
-    5,
-    128,
-    4,
-    6,
-    129,
-    3,
-    7,
-    130,
-    3,
-    8,
-    131,
-    4,
-    9,
-    132,
-    3,
-    10,
-    133,
-    4,
-    11,
-    134,
-    4,
-    12,
-    135,
-    4,
-    13,
-    136,
-    4,
-    14,
-    137,
-    3,
-    15,
-    138,
-    2,
-    16,
-    139,
-    4,
-    17,
-    140,
-    3,
-    18,
-    141,
-    2,
-    19,
-    142,
-    2,
-    20,
-    143,
-    4,
-    21,
-    144,
-    2,
-    22,
-    145,
-    4,
-    23,
-    146,
-    4,
-    24,
-    147,
-    3,
-    25,
-    148,
-    2,
-    26,
-    149,
-    4,
-    27,
-    150,
-    4,
-    28,
-    151,
-    2,
-    29,
-    152
-  ];
 
   string[] internal text_traits = [
     "\u2417\u0040\u0030\u2410\u004b\u0060\u0024",
@@ -1160,5 +1086,608 @@ contract MassRenderer is AccessControl {
     "\u2408\u002b\u002a\u002d\u2408\u002b\u0029",
     "\u002e\u2406\u0027\u2411\u0024\u0025",
     "\u2415\u2414\u241b\u002f\u2403\u2408"
+  ];
+
+  uint256[] internal deterministicPalettes = [
+    13,
+    136,
+    14,
+    137,
+    12,
+    135,
+    20,
+    143,
+    24,
+    147,
+    14,
+    137,
+    10,
+    133,
+    16,
+    139,
+    12,
+    135,
+    1,
+    124,
+    20,
+    143,
+    4,
+    127,
+    6,
+    129,
+    11,
+    134,
+    21,
+    144,
+    7,
+    130,
+    5,
+    128,
+    13,
+    136,
+    16,
+    139,
+    13,
+    136,
+    5,
+    128,
+    7,
+    130,
+    11,
+    134,
+    13,
+    136,
+    6,
+    129,
+    0,
+    123,
+    23,
+    146,
+    14,
+    137,
+    24,
+    147,
+    15,
+    138,
+    0,
+    123,
+    22,
+    145,
+    12,
+    135,
+    3,
+    126,
+    24,
+    147,
+    6,
+    129,
+    4,
+    127,
+    7,
+    130,
+    0,
+    123,
+    23,
+    146,
+    3,
+    126,
+    19,
+    142,
+    5,
+    128,
+    16,
+    139,
+    18,
+    141,
+    28,
+    151,
+    11,
+    134,
+    17,
+    140,
+    13,
+    136,
+    19,
+    142,
+    12,
+    135,
+    27,
+    150,
+    20,
+    143,
+    17,
+    140,
+    9,
+    132,
+    28,
+    151,
+    13,
+    136,
+    23,
+    146,
+    11,
+    134,
+    24,
+    147,
+    8,
+    131,
+    1,
+    124,
+    2,
+    125,
+    10,
+    133,
+    17,
+    140,
+    25,
+    148,
+    2,
+    125,
+    1,
+    124,
+    2,
+    125,
+    12,
+    135,
+    23,
+    146,
+    29,
+    152,
+    5,
+    128,
+    1,
+    124,
+    26,
+    149,
+    9,
+    132,
+    22,
+    145,
+    10,
+    133,
+    18,
+    141,
+    21,
+    144,
+    17,
+    140,
+    6,
+    129,
+    27,
+    150,
+    21,
+    144,
+    9,
+    132,
+    3,
+    126,
+    29,
+    152,
+    2,
+    125,
+    6,
+    129,
+    7,
+    130,
+    15,
+    138,
+    18,
+    141,
+    7,
+    130,
+    13,
+    136,
+    25,
+    148,
+    0,
+    123,
+    11,
+    134,
+    8,
+    131,
+    7,
+    130,
+    22,
+    145,
+    2,
+    125,
+    12,
+    135,
+    29,
+    152,
+    11,
+    134,
+    0,
+    123,
+    28,
+    151,
+    19,
+    142,
+    6,
+    129,
+    6,
+    129,
+    25,
+    148,
+    6,
+    129,
+    15,
+    138,
+    17,
+    140,
+    28,
+    151,
+    17,
+    140,
+    25,
+    148,
+    28,
+    151,
+    27,
+    150,
+    24,
+    147,
+    1,
+    124,
+    5,
+    128,
+    25,
+    148,
+    9,
+    132,
+    27,
+    150,
+    24,
+    147,
+    13,
+    136,
+    23,
+    146,
+    18,
+    141,
+    0,
+    123,
+    1,
+    124,
+    6,
+    129,
+    23,
+    146,
+    17,
+    140,
+    11,
+    134,
+    14,
+    137,
+    6,
+    129,
+    0,
+    123,
+    18,
+    141,
+    27,
+    150,
+    20,
+    143,
+    5,
+    128,
+    5,
+    128,
+    0,
+    123,
+    9,
+    132,
+    9,
+    132,
+    29,
+    152,
+    28,
+    151,
+    22,
+    145,
+    11,
+    134,
+    9,
+    132,
+    15,
+    138,
+    12,
+    135,
+    26,
+    149,
+    4,
+    127,
+    8,
+    131,
+    4,
+    127,
+    27,
+    150,
+    10,
+    133,
+    21,
+    144,
+    16,
+    139,
+    23,
+    146,
+    21,
+    144,
+    0,
+    123,
+    10,
+    133,
+    17,
+    140,
+    16,
+    139,
+    28,
+    151,
+    14,
+    137,
+    4,
+    127,
+    9,
+    132,
+    4,
+    127,
+    16,
+    139,
+    15,
+    138,
+    22,
+    145,
+    14,
+    137,
+    29,
+    152,
+    3,
+    126,
+    4,
+    127,
+    2,
+    125,
+    20,
+    143,
+    11,
+    134,
+    10,
+    133,
+    24,
+    147,
+    15,
+    138,
+    27,
+    150,
+    29,
+    152,
+    6,
+    129,
+    13,
+    136,
+    13,
+    136,
+    26,
+    149,
+    3,
+    126,
+    24,
+    147,
+    5,
+    128,
+    21,
+    144,
+    15,
+    138,
+    4,
+    127,
+    6,
+    129,
+    17,
+    140,
+    10,
+    133,
+    13,
+    136,
+    10,
+    133,
+    5,
+    128,
+    18,
+    141,
+    12,
+    135,
+    5,
+    128,
+    3,
+    126,
+    3,
+    126,
+    1,
+    124,
+    7,
+    130,
+    12,
+    135,
+    21,
+    144,
+    27,
+    150,
+    26,
+    149,
+    7,
+    130,
+    4,
+    127,
+    27,
+    150,
+    8,
+    131,
+    3,
+    126,
+    0,
+    123,
+    18,
+    141,
+    18,
+    141,
+    28,
+    151,
+    23,
+    146,
+    9,
+    132,
+    2,
+    125,
+    9,
+    132,
+    12,
+    135,
+    17,
+    140,
+    11,
+    134,
+    14,
+    137,
+    4,
+    127,
+    24,
+    147,
+    24,
+    147,
+    24,
+    147,
+    25,
+    148,
+    26,
+    149,
+    19,
+    142,
+    9,
+    132,
+    28,
+    151,
+    23,
+    146,
+    18,
+    141,
+    23,
+    146,
+    14,
+    137,
+    15,
+    138,
+    3,
+    126,
+    28,
+    151,
+    24,
+    147,
+    25,
+    148,
+    12,
+    135,
+    19,
+    142,
+    14,
+    137,
+    3,
+    126,
+    15,
+    138,
+    9,
+    132,
+    17,
+    140,
+    17,
+    140,
+    8,
+    131,
+    8,
+    131,
+    20,
+    143,
+    3,
+    126,
+    1,
+    124,
+    27,
+    150,
+    11,
+    134,
+    19,
+    142,
+    0,
+    123,
+    21,
+    144,
+    8,
+    131,
+    13,
+    136,
+    10,
+    133,
+    23,
+    146,
+    14,
+    137,
+    4,
+    127,
+    25,
+    148,
+    23,
+    146,
+    21,
+    144,
+    26,
+    149,
+    5,
+    128,
+    27,
+    150,
+    8,
+    131,
+    5,
+    128,
+    0,
+    123,
+    14,
+    137,
+    28,
+    151,
+    7,
+    130,
+    27,
+    150,
+    28,
+    151,
+    4,
+    127,
+    25,
+    148,
+    22,
+    145,
+    2,
+    125,
+    11,
+    134,
+    3,
+    126,
+    14,
+    137,
+    21,
+    144,
+    21,
+    144,
+    12,
+    135,
+    8,
+    131,
+    2,
+    125,
+    21,
+    144,
+    1,
+    124
   ];
 }

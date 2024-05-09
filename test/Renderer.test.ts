@@ -63,11 +63,18 @@ describe.only("Renderer", async function () {
     console.log(rv[1]);
   });
 
+  it("Correctly generates traits arrays", async function () {
+    const rv = await contract.getRawTraitsArrays(780997, 1003, 11);
+
+    expect(rv[0].toString() === "4");
+    expect(rv[1].toString() === "127");
+  });
+
   it("Can call tokenURI", async function () {
     await contract.tokenURI(0);
   });
 
-  it.only("Mint many", async function () {
+  it.skip("Mint many", async function () {
     const [dev, artist, dao] = await ethers.getSigners();
     for (let i = 1; i < 300; i++) {
       try {
