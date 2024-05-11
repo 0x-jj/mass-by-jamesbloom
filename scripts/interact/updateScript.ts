@@ -1,31 +1,31 @@
 import { ethers, network } from "hardhat";
 import * as utilities from "../utils";
 
-const rendererContractAddress = "0xd816825af71993Dc4FfFe39564c7B265806d7196";
+const rendererContractAddress = "0x31a295dAF49B88ccF4C2EB787a37094f270cA00e";
 
-const details = {
-  newScriptName: "jb_params2",
-  scriptPath: "scripts/parameters-min.js",
-  compress: true,
-  scriptIndex: 1,
-  tagType: utilities.HTMLTagType.scriptGZIPBase64DataURI,
-};
+const scriptToUpdate = "params";
 
 async function main() {
+  const scriptDef = utilities.scripts.find((s) => s.alias === scriptToUpdate);
+
+  if (!scriptDef) {
+    throw new Error("Script definition not found");
+  }
+
+  const index = utilities.scripts.findIndex((s) => s.alias === scriptDef.alias);
+
+  if (index === -1) {
+    throw new Error("Script index not found");
+  }
+
   const renderer = await ethers.getContractAt("MassRenderer", rendererContractAddress);
 
   const storageContractAddr = utilities.addressFor(network.name, "ScriptyStorageV2");
   const storageContract = await ethers.getContractAt("ScriptyStorageV2", storageContractAddr);
 
-  await utilities.storeScript(
-    network,
-    storageContract,
-    details.newScriptName,
-    details.scriptPath,
-    details.compress
-  );
+  await utilities.storeScript(network, storageContract, scriptDef.name, scriptDef.path, scriptDef.compress);
 
-  await renderer.setScriptDefinition(details.scriptIndex, details.newScriptName, details.tagType);
+  await renderer.setScriptDefinition(index, scriptDef.name, scriptDef.tagType);
 }
 
 main().then(console.log);

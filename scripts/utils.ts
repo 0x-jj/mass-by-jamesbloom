@@ -188,47 +188,63 @@ export enum HTMLTagType {
   scriptPNGBase64DataURI,
 }
 
-export const scripts: { name: string; path: string; compress: boolean; tagType: HTMLTagType }[] = [
+type ScriptAlias = "three" | "params" | "objects" | "textures" | "gunzip" | "base" | "main";
+type ScriptDefinition = {
+  name: string;
+  path: string;
+  compress: boolean;
+  tagType: HTMLTagType;
+  alias: ScriptAlias;
+};
+
+export const scripts: ScriptDefinition[] = [
   {
     name: "three-v0.147.0.min.js.gz",
     path: "scripts/three-v0.147.0.min.js.gz.txt",
     compress: false,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
+    alias: "three",
   },
   {
-    name: "jb_params6",
+    name: "jb_params7",
     path: "scripts/parameters-min.js",
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
+    alias: "params",
   },
   {
     name: "jb_mass_objects",
     path: "scripts/objects.js",
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
+    alias: "objects",
   },
   {
     name: "jb_mass_textures",
     path: "scripts/textures.js",
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
+    alias: "textures",
   },
   {
     name: "gunzipScripts-0.0.1.js",
     path: "scripts/gunzipScripts-0.0.1.js",
     compress: false,
     tagType: HTMLTagType.scriptBase64DataURI,
+    alias: "gunzip",
   },
   {
     name: "jb_mass_base",
     path: "scripts/massBase.js",
     compress: false,
     tagType: HTMLTagType.script,
+    alias: "base",
   },
   {
     name: "jb_mass_main9",
     path: "scripts/main-min.js",
     compress: false,
     tagType: HTMLTagType.script,
+    alias: "main",
   },
 ];
