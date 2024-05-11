@@ -186,7 +186,7 @@ contract FixedPriceSale is FixedPriceSeller, AccessControl {
       }
     }
 
-    _purchase(msg.sender, qty);
+    _purchase(minter, qty);
   }
 
   /**

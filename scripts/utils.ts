@@ -188,7 +188,7 @@ export enum HTMLTagType {
   scriptPNGBase64DataURI,
 }
 
-type ScriptAlias = "three" | "params" | "objects" | "textures" | "gunzip" | "base" | "main";
+type ScriptAlias = "three" | "params" | "objects" | "textures" | "gunzip" | "base" | "main" | "nodes";
 type ScriptDefinition = {
   name: string;
   path: string;
@@ -206,11 +206,18 @@ export const scripts: ScriptDefinition[] = [
     alias: "three",
   },
   {
-    name: "jb_params7",
+    name: "jb_params8",
     path: "scripts/parameters-min.js",
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
     alias: "params",
+  },
+  {
+    name: "jb_nodes",
+    path: "scripts/nodes.js",
+    compress: true,
+    tagType: HTMLTagType.scriptGZIPBase64DataURI,
+    alias: "nodes",
   },
   {
     name: "jb_mass_objects",
@@ -241,7 +248,7 @@ export const scripts: ScriptDefinition[] = [
     alias: "base",
   },
   {
-    name: "jb_mass_main9",
+    name: "jb_mass_main10",
     path: "scripts/main-min.js",
     compress: false,
     tagType: HTMLTagType.script,

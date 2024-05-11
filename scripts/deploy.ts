@@ -89,8 +89,8 @@ async function main() {
   await nftContract.mint(dev.address);
   console.log("Minted 1 NFT");
 
-  if (network.name == "sepolia") {
-    console.log("Waiting a little bytecode index on Etherscan");
+  if (network.name == "sepolia" || network.name == "mainnet") {
+    console.log("Waiting for Etherscan to index the bytecode for verification");
     await delay(30000);
 
     await run("verify:verify", {
