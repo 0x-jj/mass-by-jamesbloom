@@ -214,7 +214,7 @@ export const scripts: ScriptDefinition[] = [
     compress: false,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
     alias: "three",
-    useEthFsDirectly: false,
+    useEthFsDirectly: true,
   },
   {
     name: "jb_params9",
