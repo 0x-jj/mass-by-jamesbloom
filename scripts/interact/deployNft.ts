@@ -6,8 +6,7 @@ const rendererAddress = "0x9861F4b3E833b9e8618F6c3Af3B295d1b2177303";
 const admin = "0x20Ec68Ba5dC8aF5380BDb37465b3F9BDE75f9635";
 
 const secondaryMarketSplits = [
-  { address: "0x65C7432E6662A96f4e999603991d5E929E57f60A", split: 53 },
-  { address: "0x06CB0A03C2518873BeFC6BC257CBf4C438D14b4A", split: 4 },
+  { address: "0x65C7432E6662A96f4e999603991d5E929E57f60A", split: 85 },
   { address: "0x134309c4cf57BfA43EF66bF20bD0EEcCDEb2D80c", split: 15 },
 ];
 
