@@ -27,8 +27,16 @@
     width: 98%;
 }`;
   const head = document.head;
-  const style = document.createElement("style");
 
+  document.prepend(
+    document.createComment(`Mass by James Bloom. Minted May 15th 2024 with code on-chain on Ethereum L1. 
+
+  Made with javascript ES2023 and three.js 0.144.0. Compatible with Google Chrome 124.0.6367.119 and Safari 17.4.1 (both desktop and phone).
+  
+  Press M to change Ethereum node. I and O to zoom in and out.`)
+  );
+
+  const style = document.createElement("style");
   head.appendChild(style);
 
   if (style.styleSheet) {

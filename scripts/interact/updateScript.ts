@@ -1,9 +1,9 @@
 import { ethers, network } from "hardhat";
 import * as utilities from "../utils";
 
-const rendererContractAddress = "0x5D25722e13C4f27903d0f0b707a3803282932C13";
+const rendererContractAddress = "0x9861F4b3E833b9e8618F6c3Af3B295d1b2177303";
 
-const scriptToUpdate: utilities.ScriptAlias = "params";
+const scriptToUpdate: utilities.ScriptAlias = "base";
 
 async function main() {
   const scriptDef = utilities.scripts.find((s) => s.alias === scriptToUpdate);
@@ -25,7 +25,7 @@ async function main() {
 
   await utilities.storeScript(network, storageContract, scriptDef.name, scriptDef.path, scriptDef.compress);
 
-  await renderer.setScriptDefinition(index, scriptDef.name, scriptDef.tagType);
+  await renderer.setScriptDefinition(index, scriptDef.name, scriptDef.tagType, storageContractAddr);
 }
 
 main().then(console.log);

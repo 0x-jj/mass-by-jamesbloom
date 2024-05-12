@@ -65,10 +65,7 @@ async function main() {
     [dev.address, artist.address, dao.address],
     wethContract.address,
     rendererContract.address,
-    SUPPLY,
-    network.name === "hardhat"
-      ? "0x00000000000076a84fef008cdabe6409d2fe638b"
-      : utilities.addressFor(network.name, "DelegateCash")
+    SUPPLY
   );
   await nftContract.deployed();
   console.log("NFT Contract is deployed", nftContract.address);
@@ -92,7 +89,6 @@ async function main() {
           wethContract.address,
           rendererContract.address,
           SUPPLY,
-          utilities.addressFor(network.name, "DelegateCash"),
         ],
       });
     } catch (e) {

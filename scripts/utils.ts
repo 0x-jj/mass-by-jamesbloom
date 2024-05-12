@@ -217,7 +217,7 @@ export const scripts: ScriptDefinition[] = [
     useEthFsDirectly: true,
   },
   {
-    name: "jb_params9",
+    name: "jb_mass_params",
     path: "scripts/parameters-min.js",
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
@@ -225,7 +225,7 @@ export const scripts: ScriptDefinition[] = [
     useEthFsDirectly: false,
   },
   {
-    name: "jb_nodes2",
+    name: "jb_nodes",
     path: "scripts/nodes.js",
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
@@ -257,7 +257,7 @@ export const scripts: ScriptDefinition[] = [
     useEthFsDirectly: true,
   },
   {
-    name: "jb_mass_base",
+    name: "jb_mass_base1",
     path: "scripts/massBase.js",
     compress: false,
     tagType: HTMLTagType.script,
@@ -265,7 +265,7 @@ export const scripts: ScriptDefinition[] = [
     useEthFsDirectly: false,
   },
   {
-    name: "jb_mass_main13",
+    name: "jb_mass_main",
     path: "scripts/main-min.js",
     compress: false,
     tagType: HTMLTagType.script,

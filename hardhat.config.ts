@@ -83,7 +83,7 @@ module.exports = {
         initialIndex: 4,
         mnemonic: SEED_PHRASE,
       },
-      gasMultiplier: 1.05,
+      gasMultiplier: 1.02,
     },
   },
   gasReporter: {

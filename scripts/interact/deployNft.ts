@@ -1,15 +1,14 @@
 import { ethers, run } from "hardhat";
 
-const maxSupply = 500;
+const maxSupply = 300;
 const wethAddress = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
-const rendererAddress = "0xDc49B9D7De7b1B4d6d153d9857b3942Dc4BADDfA";
+const rendererAddress = "0x9861F4b3E833b9e8618F6c3Af3B295d1b2177303";
 const admin = "0x20Ec68Ba5dC8aF5380BDb37465b3F9BDE75f9635";
 
 const secondaryMarketSplits = [
-  { address: "0xB28B71C694F53C7CfEA8dffDC85733237e0C981e", split: 33 },
   { address: "0x65C7432E6662A96f4e999603991d5E929E57f60A", split: 53 },
-  { address: "0x134309c4cf57BfA43EF66bF20bD0EEcCDEb2D80c", split: 10 },
   { address: "0x06CB0A03C2518873BeFC6BC257CBf4C438D14b4A", split: 4 },
+  { address: "0x134309c4cf57BfA43EF66bF20bD0EEcCDEb2D80c", split: 15 },
 ];
 
 const delay = (ms: number) => {
@@ -18,15 +17,14 @@ const delay = (ms: number) => {
 
 async function main() {
   const nftContract = await (
-    await ethers.getContractFactory("Gold")
+    await ethers.getContractFactory("Mass")
   ).deploy(
     secondaryMarketSplits.map((s) => ethers.utils.getAddress(s.address)),
     secondaryMarketSplits.map((s) => s.split),
     [admin],
     wethAddress,
     rendererAddress,
-    maxSupply,
-    "0x00000000000076a84fef008cdabe6409d2fe638b"
+    maxSupply
   );
 
   await nftContract.deployed();
@@ -45,7 +43,6 @@ async function main() {
       wethAddress,
       rendererAddress,
       maxSupply,
-      "0x00000000000076a84fef008cdabe6409d2fe638b",
     ],
   });
 }

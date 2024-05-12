@@ -9,7 +9,6 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {ERC721} from "./lib/ERC721.sol";
-import {IDelegateCash} from "./lib/IDelegateCash.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 error NotAuthorized();
@@ -68,17 +67,13 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
   /// @dev Base timestamp to use to calculate averages in the art script
   uint256 public baseTimestamp;
 
-  /// @dev Delegate cash contract address
-  IDelegateCash public delegateCash;
-
   constructor(
     address[] memory payees,
     uint256[] memory shares,
     address[] memory admins_,
     address wethContract_,
-    address goldRenderer_,
-    uint256 maxSupply_,
-    address delegateCash_
+    address renderer_,
+    uint256 maxSupply_
   ) PaymentSplitter(payees, shares) ERC721("Mass", "MASS") {
     _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
     for (uint256 i = 0; i < admins_.length; i++) {
@@ -86,10 +81,9 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
     }
 
     wethContract = IERC20(wethContract_);
-    renderer = IMassRenderer(goldRenderer_);
+    renderer = IMassRenderer(renderer_);
     baseTimestamp = block.timestamp;
     maxSupply = maxSupply_;
-    delegateCash = IDelegateCash(delegateCash_);
   }
 
   receive() external payable override {
@@ -127,7 +121,7 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
 
   function mint(address to) public whenNotPaused {
     if (totalSupply >= maxSupply) revert MaxSupplyReached();
-    // if (!(_msgSender() == minter || _msgSender() == owner())) revert NotAuthorized();
+    if (!(_msgSender() == minter || _msgSender() == owner())) revert NotAuthorized();
 
     uint256 tokenId = totalSupply;
     totalSupply++;
@@ -138,7 +132,7 @@ contract Mass is ERC721, PaymentSplitter, AccessControl, Ownable, Pausable {
     _safeMint(to, tokenId);
   }
 
-  function mintMany(uint256 amt) external {
+  function mintMany(uint256 amt) external onlyOwner {
     for (uint256 i = 0; i < amt; i++) {
       mint(_msgSender());
     }
