@@ -1,22 +1,34 @@
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
-import { Mass, MassRenderer } from "../typechain-types";
-import { scriptDefs } from "./utils";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { Mass, MassRenderer, ScriptyStorageV2, WETH } from "../typechain-types";
+import { deployContracts, scriptDefs } from "./utils";
 import { takeSnapshot, revertToSnapshot } from "./helpers/snapshot";
 import { deployOrGetContracts } from "../scripts/utils";
+import * as utilities from "../scripts/utils";
+import { BigNumber } from "ethers";
 
-describe("Renderer", async function () {
+const toWei = ethers.utils.parseEther;
+
+describe.only("Renderer", async function () {
   let contract: MassRenderer;
-
+  let deployer: SignerWithAddress;
+  let wethContract: WETH;
   let snapshotId: number;
   let nft: Mass;
+  let scriptyStorage: ScriptyStorageV2;
 
   before("Deploy", async () => {
     const [dev, artist, dao] = await ethers.getSigners();
-    const renderer = await ethers.getContractFactory("MassRenderer");
+
     const { scriptyStorageContract, scriptyBuilderContract, wethContract } = await deployOrGetContracts(
       network
     );
+
+    scriptyStorage = scriptyStorageContract;
+
+    const renderer = await ethers.getContractFactory("MassRenderer");
+
     const rendererContract = await renderer.deploy(
       [dev.address, artist.address, dao.address],
       scriptyBuilderContract.address,
@@ -26,6 +38,7 @@ describe("Renderer", async function () {
         storageContract: scriptyStorageContract.address,
       }))
     );
+
     await rendererContract.deployed();
     contract = rendererContract;
 
@@ -54,34 +67,25 @@ describe("Renderer", async function () {
     await revertToSnapshot(snapshotId);
   });
 
-  it("Correctly generates traits", async function () {
-    const rv = await contract.generateAllTraits(0);
+  it("Can deploy scripts", async function () {
+    let gasUsed = BigNumber.from(0);
 
-    console.log(rv[0]);
-    console.log(rv[1]);
-  });
+    for (let i = 0; i < utilities.scripts.length; i++) {
+      const script = utilities.scripts[i];
 
-  it("Correctly generates traits arrays", async function () {
-    const rv = await contract.getRawTraitsArrays(780997, 1003, 11);
+      const gas = await utilities.storeScript(
+        network,
+        scriptyStorage,
+        script.name,
+        script.path,
+        script.compress
+      );
 
-    expect(rv[0].toString() === "4");
-    expect(rv[1].toString() === "127");
-  });
-
-  it("Can call tokenURI", async function () {
-    await contract.tokenURI(0);
-  });
-
-  it.skip("Mint many", async function () {
-    const [dev, artist, dao] = await ethers.getSigners();
-    for (let i = 1; i < 300; i++) {
-      try {
-        await nft.mint(dev.address);
-        await contract.tokenURI(i);
-      } catch (e) {
-        console.log(i);
-        throw e;
+      if (!script.useEthFsDirectly) {
+        gasUsed = gasUsed.add(gas);
       }
     }
+
+    console.log("Gas used", gasUsed.toString());
   });
 });

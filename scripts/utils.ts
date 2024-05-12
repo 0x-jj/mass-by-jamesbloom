@@ -3,7 +3,7 @@ import zlib from "zlib";
 import fs from "fs";
 import { Network } from "hardhat/types";
 import { ETHFSV2FileStorage, ScriptyStorageV2 } from "../typechain-types";
-import { BigNumber } from "ethers";
+import { BigNumber, ContractReceipt } from "ethers";
 import path from "path";
 import { randomBytes } from "ethers/lib/utils";
 
@@ -56,11 +56,8 @@ const addresses = {
   mainnet: {
     ScriptyStorageV2: "0xbD11994aABB55Da86DC246EBB17C1Be0af5b7699",
     ScriptyBuilderV2: "0xD7587F110E08F4D120A231bA97d3B577A81Df022",
-    ETHFSFileStorage: "0xFc7453dA7bF4d0c739C1c53da57b3636dAb0e11e",
     WETH: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
     DelegateCash: "0x00000000000076a84fef008cdabe6409d2fe638b",
-    ethfs_ContentStore: "0xC6806fd75745bB5F5B32ADa19963898155f9DB91",
-    ethfs_FileStore: "0x9746fD0A77829E12F8A9DBe70D7a322412325B91",
     ETHFSV2FileStorage: "0x8FAA1AAb9DA8c75917C43Fb24fDdb513edDC3245",
   },
   sepolia: {
@@ -134,10 +131,12 @@ export async function storeScript(
   filePath: string,
   compress = false
 ) {
+  let totalGas = BigNumber.from(0);
+
   const storedScript = await storageContract.contents(name);
   if (storedScript.size.gt(BigNumber.from(0))) {
     console.log(`${name} is already stored`);
-    return;
+    return totalGas;
   }
 
   let script = readFile(path.join(__dirname, filePath));
@@ -149,29 +148,45 @@ export async function storeScript(
   const scriptChunks = chunkSubstr(script, 24575);
 
   if (storedScript.owner === ethers.constants.AddressZero) {
-    await waitIfNeeded(await storageContract.createContent(name, stringToBytes(name)));
+    const receipt = await waitIfNeeded(await storageContract.createContent(name, stringToBytes(name)));
+    if (receipt) {
+      const gasUsed = receipt.gasUsed;
+      totalGas = totalGas.add(gasUsed);
+    }
   }
 
   for (let i = 0; i < scriptChunks.length; i++) {
+    let receipt: ContractReceipt | null = null;
+
     console.log(
       `Storing ${name} chunk ${i + 1}/${scriptChunks.length}. Size: ${scriptChunks[i].length} bytes`
     );
 
     if (network.name === "hardhat") {
-      await waitIfNeeded(
+      receipt = await waitIfNeeded(
         await storageContract.addChunkToContent(name, stringToBytes(scriptChunks[i]), { gasLimit: 500000000 })
       );
     } else {
-      await waitIfNeeded(await storageContract.addChunkToContent(name, stringToBytes(scriptChunks[i])));
+      receipt = await waitIfNeeded(
+        await storageContract.addChunkToContent(name, stringToBytes(scriptChunks[i]))
+      );
+    }
+
+    if (receipt) {
+      const gasUsed = receipt.gasUsed;
+      totalGas = totalGas.add(gasUsed);
     }
   }
   console.log(`${name} is stored`);
+  return totalGas;
 }
 
-const waitIfNeeded = async (tx: any) => {
+const waitIfNeeded = async (tx: any): Promise<ContractReceipt | null> => {
   if (tx.wait) {
-    await tx.wait(1);
+    return tx.wait(1);
   }
+  console.log("returning null");
+  return null;
 };
 
 export enum HTMLTagType {
@@ -199,7 +214,7 @@ export const scripts: ScriptDefinition[] = [
     compress: false,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
     alias: "three",
-    useEthFsDirectly: true,
+    useEthFsDirectly: false,
   },
   {
     name: "jb_params9",

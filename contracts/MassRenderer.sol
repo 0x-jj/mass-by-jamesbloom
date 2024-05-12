@@ -111,11 +111,13 @@ contract MassRenderer is AccessControl {
   function setScriptDefinition(
     uint256 idx,
     string calldata scriptName,
-    HTMLTagType tagType
+    HTMLTagType tagType,
+    address storageContract
   ) public onlyRole(DEFAULT_ADMIN_ROLE) {
     require(idx < scriptDefinitions.length, "Index out of bounds");
     scriptDefinitions[idx].name = scriptName;
     scriptDefinitions[idx].tagType = tagType;
+    scriptDefinitions[idx].storageContract = storageContract;
   }
 
   function getSeedVariables(uint256 tokenId) internal view returns (uint256, uint256, uint256) {
