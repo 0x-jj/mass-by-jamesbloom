@@ -2,9 +2,10 @@ import { ethers } from "hardhat";
 import zlib from "zlib";
 import fs from "fs";
 import { Network } from "hardhat/types";
-import { ScriptyStorageV2 } from "../typechain-types";
+import { ETHFSV2FileStorage, ScriptyStorageV2 } from "../typechain-types";
 import { BigNumber } from "ethers";
 import path from "path";
+import { randomBytes } from "ethers/lib/utils";
 
 export const stringToBytes = (str: string) => {
   return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(str));
@@ -52,7 +53,7 @@ export const toGZIPBase64String = (data: any) => {
 };
 
 const addresses = {
-  ethereum: {
+  mainnet: {
     ScriptyStorageV2: "0xbD11994aABB55Da86DC246EBB17C1Be0af5b7699",
     ScriptyBuilderV2: "0xD7587F110E08F4D120A231bA97d3B577A81Df022",
     ETHFSFileStorage: "0xFc7453dA7bF4d0c739C1c53da57b3636dAb0e11e",
@@ -60,21 +61,14 @@ const addresses = {
     DelegateCash: "0x00000000000076a84fef008cdabe6409d2fe638b",
     ethfs_ContentStore: "0xC6806fd75745bB5F5B32ADa19963898155f9DB91",
     ethfs_FileStore: "0x9746fD0A77829E12F8A9DBe70D7a322412325B91",
-  },
-  goerli: {
-    ScriptyStorageV2: "0xbD11994aABB55Da86DC246EBB17C1Be0af5b7699",
-    ScriptyBuilderV2: "0xD7587F110E08F4D120A231bA97d3B577A81Df022",
-    ETHFSFileStorage: "0x70a78d91A434C1073D47b2deBe31C184aA8CA9Fa",
-    WETH: "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6",
-    DelegateCash: "0x00000000000076a84fef008cdabe6409d2fe638b",
-    ethfs_ContentStore: "0xED7C16aB4eB4D091F492713e5235Ac93852bc3a0",
-    ethfs_FileStore: "0x5E348d0975A920E9611F8140f84458998A53af94",
+    ETHFSV2FileStorage: "0x8FAA1AAb9DA8c75917C43Fb24fDdb513edDC3245",
   },
   sepolia: {
     ScriptyStorageV2: "0xbD11994aABB55Da86DC246EBB17C1Be0af5b7699",
     ScriptyBuilderV2: "0xD7587F110E08F4D120A231bA97d3B577A81Df022",
     WETH: "0xaa8e23fb1079ea71e0a56f48a2aa51851d8433d0",
     DelegateCash: "0x00000000000000447e69651d841bD8D104Bed493",
+    ETHFSV2FileStorage: "0x8FAA1AAb9DA8c75917C43Fb24fDdb513edDC3245",
   },
 };
 
@@ -195,6 +189,7 @@ type ScriptDefinition = {
   compress: boolean;
   tagType: HTMLTagType;
   alias: ScriptAlias;
+  useEthFsDirectly: boolean;
 };
 
 export const scripts: ScriptDefinition[] = [
@@ -204,13 +199,15 @@ export const scripts: ScriptDefinition[] = [
     compress: false,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
     alias: "three",
+    useEthFsDirectly: true,
   },
   {
-    name: "jb_params8",
+    name: "jb_params9",
     path: "scripts/parameters-min.js",
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
     alias: "params",
+    useEthFsDirectly: false,
   },
   {
     name: "jb_nodes2",
@@ -218,6 +215,7 @@ export const scripts: ScriptDefinition[] = [
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
     alias: "nodes",
+    useEthFsDirectly: false,
   },
   {
     name: "jb_mass_objects",
@@ -225,6 +223,7 @@ export const scripts: ScriptDefinition[] = [
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
     alias: "objects",
+    useEthFsDirectly: false,
   },
   {
     name: "jb_mass_textures",
@@ -232,6 +231,7 @@ export const scripts: ScriptDefinition[] = [
     compress: true,
     tagType: HTMLTagType.scriptGZIPBase64DataURI,
     alias: "textures",
+    useEthFsDirectly: false,
   },
   {
     name: "gunzipScripts-0.0.1.js",
@@ -239,6 +239,7 @@ export const scripts: ScriptDefinition[] = [
     compress: false,
     tagType: HTMLTagType.scriptBase64DataURI,
     alias: "gunzip",
+    useEthFsDirectly: true,
   },
   {
     name: "jb_mass_base",
@@ -246,12 +247,14 @@ export const scripts: ScriptDefinition[] = [
     compress: false,
     tagType: HTMLTagType.script,
     alias: "base",
+    useEthFsDirectly: false,
   },
   {
-    name: "jb_mass_main12",
+    name: "jb_mass_main13",
     path: "scripts/main-min.js",
     compress: false,
     tagType: HTMLTagType.script,
     alias: "main",
+    useEthFsDirectly: false,
   },
 ];

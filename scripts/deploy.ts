@@ -23,22 +23,36 @@ async function main() {
   console.log("Network name:", network.name);
   console.log("Deployer:", dev.address);
 
+  const isLocal = network.name === "hardhat" || network.name === "localhost";
+
+  console.log("Is local:", isLocal);
+
   const { scriptyStorageContract, scriptyBuilderContract, wethContract } =
     await utilities.deployOrGetContracts(network);
 
   for (let i = 0; i < utilities.scripts.length; i++) {
     const script = utilities.scripts[i];
+    if (!isLocal) {
+      if (script.useEthFsDirectly) {
+        console.log(`Skipping ${script.name} as it uses ethfs directly`);
+        continue;
+      }
+    }
     await utilities.storeScript(network, scriptyStorageContract, script.name, script.path, script.compress);
   }
 
   const renderer = await ethers.getContractFactory("MassRenderer");
 
+  const ethFsStorageV2 = isLocal ? "" : utilities.addressFor(network.name, "ETHFSV2FileStorage");
+
   const rendererContract = await renderer.deploy(
     [dev.address, artist.address, dao.address],
     scriptyBuilderContract.address,
-    scriptyStorageContract.address,
     "https://arweave.net/mass/",
-    utilities.scripts
+    utilities.scripts.map((s) => ({
+      ...s,
+      storageContract: !isLocal && s.useEthFsDirectly ? ethFsStorageV2 : scriptyStorageContract.address,
+    }))
   );
   await rendererContract.deployed();
   console.log("Renderer Contract is deployed", rendererContract.address);
@@ -61,31 +75,6 @@ async function main() {
 
   await rendererContract.setMassContract(nftContract.address);
 
-  // const merkleTree = getMerkleRootWithDiscounts(discounts);
-
-  // const Auction = await ethers.getContractFactory("DutchAuction");
-  // const auction = await Auction.deploy(
-  //   nftContract.address,
-  //   dev.address,
-  //   dao.address,
-  //   merkleTree.root,
-  //   network.name === "hardhat"
-  //     ? "0x00000000000076a84fef008cdabe6409d2fe638b"
-  //     : utilities.addressFor(network.name, "DelegateCash")
-  // );
-  // console.log("Auction Contract is deployed", auction.address);
-  // const startAmount = ethers.utils.parseEther("2");
-  // const endAmount = ethers.utils.parseEther("0.1");
-  // const limit = ethers.utils.parseEther("10");
-  // const refundDelayTime = 1 * 60;
-  // const startTime = Math.floor(Date.now() / 1000) - 100;
-  // const endTime = startTime + 1.5 * 3600;
-
-  // await auction.setConfig(startAmount, endAmount, limit, refundDelayTime, startTime, endTime);
-  // await auction.setSignerAddress(SIGNER);
-  // await nftContract.setMinterAddress(auction.address);
-  // console.log("Config, minter, signer are set");
-
   await nftContract.mint(dev.address);
   console.log("Minted 1 NFT");
 
@@ -93,18 +82,39 @@ async function main() {
     console.log("Waiting for Etherscan to index the bytecode for verification");
     await delay(30000);
 
-    await run("verify:verify", {
-      address: nftContract.address,
-      constructorArguments: [
-        [dev.address, artist.address, dao.address],
-        [DEV_SPLIT, ARTIST_SPLIT, DAO_SPLIT],
-        [dev.address, artist.address, dao.address],
-        wethContract.address,
-        rendererContract.address,
-        SUPPLY,
-        utilities.addressFor(network.name, "DelegateCash"),
-      ],
-    });
+    try {
+      await run("verify:verify", {
+        address: nftContract.address,
+        constructorArguments: [
+          [dev.address, artist.address, dao.address],
+          [DEV_SPLIT, ARTIST_SPLIT, DAO_SPLIT],
+          [dev.address, artist.address, dao.address],
+          wethContract.address,
+          rendererContract.address,
+          SUPPLY,
+          utilities.addressFor(network.name, "DelegateCash"),
+        ],
+      });
+    } catch (e) {
+      console.log(e);
+    }
+
+    try {
+      await run("verify:verify", {
+        address: rendererContract.address,
+        constructorArguments: [
+          [dev.address, artist.address, dao.address],
+          scriptyBuilderContract.address,
+          "https://arweave.net/mass/",
+          utilities.scripts.map((s) => ({
+            ...s,
+            storageContract: !isLocal && s.useEthFsDirectly ? ethFsStorageV2 : scriptyStorageContract.address,
+          })),
+        ],
+      });
+    } catch (e) {
+      console.log(e);
+    }
   }
 
   const tokenURI = await nftContract.tokenURI(0);

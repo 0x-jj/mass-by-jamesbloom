@@ -3,7 +3,7 @@ import * as utilities from "../utils";
 
 const rendererContractAddress = "0x5D25722e13C4f27903d0f0b707a3803282932C13";
 
-const scriptToUpdate: utilities.ScriptAlias = "main";
+const scriptToUpdate: utilities.ScriptAlias = "params";
 
 async function main() {
   const scriptDef = utilities.scripts.find((s) => s.alias === scriptToUpdate);

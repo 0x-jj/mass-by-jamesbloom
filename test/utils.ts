@@ -120,9 +120,11 @@ export async function deployContracts() {
   const rendererContract = await renderer.deploy(
     [dev.address, artist.address, dao.address],
     scriptyBuilderContract.address,
-    scriptyStorageContract.address,
     "https://arweave.net/gold/",
-    scriptDefs
+    scriptDefs.map((s) => ({
+      ...s,
+      storageContract: scriptyStorageContract.address,
+    }))
   );
   await rendererContract.deployed();
   console.log("Renderer Contract is deployed", rendererContract.address);

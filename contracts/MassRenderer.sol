@@ -23,7 +23,6 @@ interface IMassContract {
 contract MassRenderer is AccessControl {
   IMassContract public massContract;
 
-  address public immutable scriptyStorageAddress;
   address public immutable scriptyBuilderAddress;
 
   string public baseImageURI;
@@ -43,6 +42,7 @@ contract MassRenderer is AccessControl {
   struct ScriptDefinition {
     string name;
     HTMLTagType tagType;
+    address storageContract;
   }
 
   ScriptDefinition[] public scriptDefinitions;
@@ -65,7 +65,6 @@ contract MassRenderer is AccessControl {
   constructor(
     address[] memory admins_,
     address _scriptyBuilderAddress,
-    address _scriptyStorageAddress,
     string memory baseImageURI_,
     ScriptDefinition[] memory initialScriptDefinitions
   ) {
@@ -74,7 +73,6 @@ contract MassRenderer is AccessControl {
       _grantRole(DEFAULT_ADMIN_ROLE, admins_[i]);
     }
 
-    scriptyStorageAddress = _scriptyStorageAddress;
     scriptyBuilderAddress = _scriptyBuilderAddress;
     baseImageURI = baseImageURI_;
 
@@ -294,7 +292,7 @@ contract MassRenderer is AccessControl {
     for (uint256 i = 0; i < scriptDefinitions.length; i++) {
       requests[i + 1].name = scriptDefinitions[i].name;
       requests[i + 1].tagType = scriptDefinitions[i].tagType;
-      requests[i + 1].contractAddress = scriptyStorageAddress;
+      requests[i + 1].contractAddress = scriptDefinitions[i].storageContract;
     }
 
     HTMLRequest memory htmlRequest;
