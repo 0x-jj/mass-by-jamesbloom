@@ -1,9 +1,9 @@
 import { ethers, network } from "hardhat";
 import * as utilities from "../utils";
 
-const rendererContractAddress = "0x31a295dAF49B88ccF4C2EB787a37094f270cA00e";
+const rendererContractAddress = "0x5D25722e13C4f27903d0f0b707a3803282932C13";
 
-const scriptToUpdate = "params";
+const scriptToUpdate: utilities.ScriptAlias = "main";
 
 async function main() {
   const scriptDef = utilities.scripts.find((s) => s.alias === scriptToUpdate);
