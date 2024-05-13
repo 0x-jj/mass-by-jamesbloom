@@ -20,7 +20,7 @@ async function main() {
   ).deploy(
     secondaryMarketSplits.map((s) => ethers.utils.getAddress(s.address)),
     secondaryMarketSplits.map((s) => s.split),
-    [admin],
+    [admin, "0x65C7432E6662A96f4e999603991d5E929E57f60A"],
     wethAddress,
     rendererAddress,
     maxSupply
@@ -38,7 +38,7 @@ async function main() {
     constructorArguments: [
       secondaryMarketSplits.map((s) => ethers.utils.getAddress(s.address)),
       secondaryMarketSplits.map((s) => s.split),
-      [admin],
+      [admin, "0x65C7432E6662A96f4e999603991d5E929E57f60A"],
       wethAddress,
       rendererAddress,
       maxSupply,

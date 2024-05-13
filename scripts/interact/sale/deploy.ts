@@ -8,23 +8,17 @@ const delay = (ms: number) => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-const nftContractAddress = "0x8BAFC8dA0506d67b365552c5dbE50aee2535B85d";
+const treasury = "0x65C7432E6662A96f4e999603991d5E929E57f60A";
+const nftContractAddress = "0x80faa45d6f6cbdafdeba2f9c4a0237f74e5d8d9c";
 
 const toWei = ethers.utils.parseEther;
 
-const DEV1_SPLIT = 150; // 15%
-const ARTIST_SPLIT = 750; // 75 %
-const DEV2_SPLIT = 100; // 10 %
 const SUPPLY = 300;
 const PER_ADDRESS = 3;
 
-const presaleAddresses = [
-  "0x20ec68ba5dc8af5380bdb37465b3f9bde75f9635",
-  "0x30900cdaa15b15eb00450ab2a9cfe4d73c12319b",
-  "0xd4c4fe2d14b12bd5f94b1ed38bc93791b69dd3c2",
-  "0x549985aeb2d4e948862f40de8c03032705132cc0",
-  "0x3548214de80c57d29af861345577fcea5a3b43fe",
-];
+const startTime = 1715792400;
+
+const presaleAddresses = ["0x0000000000000000000000000000000000000000"];
 
 async function main() {
   console.log("");
@@ -38,13 +32,7 @@ async function main() {
   console.log("Network name:", network.name);
   console.log("Deployer:", dev.address);
 
-  const merkleTree = getMerkleRoot(_.uniq([dev.address, ...presaleAddresses].map((a) => a.toLowerCase())));
-
-  const PaymentSplitter = await ethers.getContractFactory("PaymentSplitter");
-  const paymentSplitter = await PaymentSplitter.deploy(
-    [dev.address, artist.address, dev2.address],
-    [DEV1_SPLIT, ARTIST_SPLIT, DEV2_SPLIT]
-  );
+  // const merkleTree = getMerkleRoot(_.uniq([dev.address, ...presaleAddresses].map((a) => a.toLowerCase())));
 
   const nft = await ethers.getContractAt("Mass", nftContractAddress);
   const Sale = await ethers.getContractFactory("FixedPriceSale");
@@ -59,13 +47,11 @@ async function main() {
     lockTotalInventory: false,
   };
 
-  const start = Math.floor(Date.now() / 1000) - 100;
-
   const sale = await Sale.deploy(
-    toWei("0.0025"),
+    toWei("0.25"),
     sellerConfig,
-    paymentSplitter.address,
-    start,
+    treasury,
+    startTime,
     [dev.address],
     utilities.addressFor(network.name, "DelegateCash"),
     false
@@ -75,7 +61,7 @@ async function main() {
   const friendlyMinterStorage = await FriendlyMinterStorage.deploy(sale.address, [dev.address]);
 
   await sale.setFriendlyMinterStorage(friendlyMinterStorage.address);
-  await sale.setPresaleMerkleRoot(merkleTree.root);
+  //await sale.setPresaleMerkleRoot(merkleTree.root);
   await sale.setNftContractAddress(nft.address);
   await nft.setMinterAddress(sale.address);
 
@@ -88,10 +74,10 @@ async function main() {
     await run("verify:verify", {
       address: sale.address,
       constructorArguments: [
-        toWei("0.0025"),
+        toWei("0.25"),
         sellerConfig,
-        paymentSplitter.address,
-        start,
+        treasury,
+        startTime,
         [dev.address],
         utilities.addressFor(network.name, "DelegateCash"),
         false,
